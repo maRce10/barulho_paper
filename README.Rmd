@@ -1,14 +1,14 @@
 ---
-title: litter_decomposition
-author: AUTOR NAME
+title: baRulho paper
+author: Marcelo Araya_Salas
 output: github_document
-date: `r format(Sys.Date(), "%d-%m-%Y")`
+date: "`r Sys.Date()`"
 editor_options:
   chunk_output_type: console
 ---
 
 <!-- Short Description  -->
-This is a short description of the project
+Code for data analysis for paper showcasing the R package baRulho 
 
 *Updated on `r Sys.time()`*
 
@@ -25,30 +25,23 @@ knitr::opts_chunk$set(
 ```
 
 
-## Table of contents
-* [General info](#general-info)
-  * [Analyses](#Analyses)
-    * [To do list](#to-do-list)
-      * [Contact](#contact)
-
-## General info
-
-General information about the project (study system, goals, etc)
-
 ## Analysis
 
-* Analysis 1
+* Simulating acoustic signals
+* [Compare Sigpro and baRulho](https://rpubs.com/marcelo-araya-salas/929959)
+* [Statistical analysis](https://rpubs.com/marcelo-araya-salas/1032060)
 
 ## In progress
 
-*  Something not finished yet
+*  Writting paper
 
 ## To-do list
 
-* Do the next analysis
+* Finish paper
+* Submit paper
 
 ## Status
 Project is: _in progress_
 
 ## Contact
-Created by [Autor name](website_URL)
+Created by [Marcelo Araya-Salas](https://marce10.github.io/)

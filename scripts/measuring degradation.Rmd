@@ -1,0 +1,825 @@
+---
+title: <center><font size="7"><b>Degradation statistics</b></font></center>
+subtitle: <center><font size="4"><b>baRulho paper</b> <br>Universidad de Costa Rica</font></center>
+author: <center><font size="3"><a href="https://marceloarayasalas.weebly.com/">Marcelo Araya-Salas</a></font></center>
+date: <center>"`r Sys.Date()`"</center>
+output:
+  html_document:
+    code_folding: hide
+    # css: extra.css
+    df_print: tibble
+    highlight: pygments  
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+fontsize: 12pt 
+editor_options: 
+  chunk_output_type: console
+---
+
+<div class="alert alert-info">
+
+# Purposes
+
+- Estimate degradation metrics on re-recorded signals from playback experiment at Bosque de Tlalpan, Mexico City, 2019
+
+- Explore graphically variation in degradation parameters related to abiotic factors
+
+</div>
+
+&nbsp; 
+
+
+```{r load packages, echo = FALSE, message = FALSE, warning=FALSE}
+
+# github packages must include user name ("user/package")
+# knitr is require for creating html/pdf/word reports
+# kableExtra is used to print pretty formatted tables 
+# formatR is used for soft-wrapping code
+# klippy is used for adding a copy button to each code block
+pkgs <- c("remotes", "rlesur/klippy", "kableExtra", "knitr", "formatR", "rprojroot", "maRce10/Rraven", "maRce10/warbleR", "maRce10/baRulho", "ggplot2", "tidyr", "viridis", "corrplot", "brms", "ggdist", "cowplot")
+
+# install/ load packages
+out <- lapply(pkgs, function(y) {
+  
+  # get pakage name
+  pkg <- strsplit(y, "/")[[1]]
+  pkg <- pkg[length(pkg)]
+  
+  # check if installed, if not then install 
+  if (!pkg %in% installed.packages()[,"Package"])  {
+
+      if (grepl("/", y))  remotes::install_github(y, force = TRUE) else
+    install.packages(y) 
+    }
+
+  # load package
+  a <- try(require(pkg, character.only = T), silent = T)
+
+  if (!a) remove.packages(pkg)
+  })
+
+
+```
+
+<!-- this code add line numbers to code blocks -->
+<!-- only works when code folding is not used in yaml (code_folding: show) -->
+
+<style>
+body
+  { counter-reset: source-line 0; }
+pre.numberSource code
+  { counter-reset: none; }
+</style>
+
+```{r setup chunks, include = FALSE}
+
+# set working directory as project directory or one directory above,
+rootdir <- try(rprojroot::find_rstudio_root_file(), silent = TRUE)
+if (is(rootdir, "try-error")) rootdir <-  ".."
+opts_knit$set(root.dir = rootdir)
+
+# options to customize chunk outputs
+knitr::opts_chunk$set(
+  class.source = "numberLines lineAnchors", # for code line numbers
+  tidy.opts = list(width.cutoff = 65), 
+  tidy = TRUE,
+  message = FALSE,
+  warning = FALSE
+ )
+
+```
+
+```{r custom data frame printing, echo = FALSE, message=FALSE}
+
+# this is a customized printing style data frames 
+# screws up tibble function
+tibble <- function(x, ...) { 
+  x <- kbl(x, digits=4, align= 'c', row.names = FALSE) 
+   x <- kable_styling(x, position ="center", full_width = FALSE,  bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
+   asis_output(x)
+}
+
+registerS3method("knit_print", "data.frame", tibble)
+
+```
+
+```{r klippy copy button, echo=FALSE, include=TRUE}
+
+# to add copy button to code blocks
+klippy::klippy(position = c('top', 'right'))
+
+```
+
+```{r functions, eval = TRUE, echo = FALSE}
+
+paral <- 22
+
+cols <- viridis(10)[c(3, 8)]
+
+cols2 <- viridis(10)[c(3, 6)]
+
+theme_set(theme_classic(base_size = 17))
+
+# degrad_params <- c(bl.rt = "blur.ratio", sp.bl.rt = "spectrum.blur.ratio", env.cr = "envelope.correlation",  EA = "excess.attenuation.", SPL = "SPL", SNR.t1 = "signal.to.noise.ratio",SNR.t2 = "signal.to.noise.ratio.t2", SPCC = "cross.correlation", TSR = "tail.to.signal.ratio", TNR = "tail.to.noise.ratio", sp.cr = "spectrum.correlation", PC1 = "PC1")
+
+degrad_params <- c(bl.rt = "blur.ratio", sp.bl.rt = "spectral.blur.ratio", env.cr = "envelope.correlation", EA ="excess.attenuation", SPL = "SPL", SNR.t1 = "signal.to.noise.ratio", SNR.t2 = "signal.to.noise.ratio", SPCC = "cross.correlation",  TSR = "tail.to.signal.ratio", TNR = "tail.to.noise.ratio", sp.cr = "spectrum.correlation", dd = "detection.distance", hac = "habitat.attenuation.coeff", PC1 = "PC1")
+
+cap_fun <- function(x) {
+    s <- strsplit(x, " ")[[1]]
+    paste(toupper(substring(s, 1, 1)), substring(s, 2),
+          sep = "", collapse = " ")
+}
+
+```
+
+```{r read data est simulations, eval = FALSE, echo = FALSE}
+
+est.alg.sim.all <- readRDS("./data/raw/extended_sel_tab_tests_simulated_tests_sounds.RDS")
+
+names(est.alg.sim.all)[13] <- "distance" 
+
+est.alg.sim.all$sound.id <- as.character(est.alg.sim.all$template)
+```
+
+```{r combine data manu and mex df, eval = FALSE, echo = FALSE}
+
+est.mx <- readRDS("./data/raw/extended_sel_tab_tests_simulated_tests_sounds.RDS")
+names(est.mx)[13] <- "distance" 
+est.mx$sound.id <- as.character(est.mx$template)
+est.mx$transect <- est.mx$Transecto
+est.mx$site <- "Mexico_DF"
+
+est.mx$habitat_structure <- ifelse(est.mx$Vegetacion == "abierta", "open", "closed")
+est.mx$data.set <- est.mx$orig.sound.file <- est.mx$Temperatura <- est.mx$environm <-  est.mx$Humedad <-  est.mx$template <- est.mx$Vegetacion <- est.mx$Transecto <- NULL
+
+est.mx2 <- separate(as.data.frame(est.mx), col = sound.id, into = c("duration", "frequency.modulation", "amplitude.modulation", "Harmonicity", "delete"), remove = FALSE, sep = "_")
+
+est.mx <- fix_extended_selection_table(X = est.mx2, est.mx)
+
+est.mx$duration <- ifelse(est.mx$duration == 0.1, "short", "long")
+est.mx$frequency.modulation <- ifelse(est.mx$frequency.modulation == "BB", "fm", "no_fm")
+est.mx$Harmonicity <- gsub(".wav", "", est.mx$Harmonicity)
+est.mx <- est.mx[est.mx$Harmonicity == "no.harm",]
+
+est.mx$Harmonicity <- est.mx$delete <- NULL
+
+
+est.mn <- readRDS("./data/raw/consolidated.est.manu.RDS")
+est.mn$transect <- est.mn$site
+est.mn$habitat_structure <- est.mn$habitat
+est.mn$site <- "Costa-Rica_Manu"
+est.mn$mic.height <- est.mn$speak.height <- est.mn$song <- est.mn$cicadas <- est.mn$template <- est.mn$habitat <- NULL
+
+source("~/Dropbox/R_package_testing/warbleR/R/by_element_est.R")
+est.mn.be <- by_element_est(est.mn, mar = 0.04)
+est.rerec <- rbind(est.mx, est.mn.be)
+
+# infer original frequency
+possb_freqs <- seq(0.5, 10, length.out = 20)
+
+est.rerec$frequency <- sapply(1:nrow(est.rerec), function(x)
+  possb_freqs[which.min(abs((est.rerec$top.freq[x] + est.rerec$bottom.freq[x]) / 2 - possb_freqs))]  
+)
+
+est.rerec$sound.id <- gsub("BB", "fm", est.rerec$sound.id)
+est.rerec$sound.id <- gsub("pure.tone", "no.fm", est.rerec$sound.id)
+est.rerec$sound.id <- gsub(".wav", "", est.rerec$sound.id)
+est.rerec$sound.id <- paste(est.rerec$sound.id, ifelse(est.rerec$site == "Mexico_DF", "mx", "cr"), sep = "_")
+
+est.rerec$treatment.replicates <- paste("frq:", est.rerec$frequency, "dur:", est.rerec$duration, est.rerec$amplitude.modulation, est.rerec$frequency.modulation, sep = "_")
+
+est.rerec <- est.rerec[est.rerec$distance %in% c(1, 30), ]
+est.rerec$transect <- gsub("S", "", est.rerec$transect)
+
+est.rerec$transect <- paste0(ifelse(
+est.rerec$site == "Costa-Rica_Manu", "cr", "mx"), 
+est.rerec$transect)
+est.rerec$transect[est.rerec$transect == "crNA"] <- "cr1"
+est.rerec$transect[est.rerec$transect == "cr4"] <- "cr2"
+table(est.rerec$transect, est.rerec$site, est.rerec$distance)
+
+table(est.rerec$transect, est.rerec$site, est.rerec$habitat_structure)
+paste(est.rerec$transect)
+
+
+
+est.rerec$habitat_structure[est.rerec$habitat_structure == "HA"] <- "open"
+est.rerec$habitat_structure[est.rerec$habitat_structure == "HC"] <- "closed"
+est.rerec$habitat_structure[est.rerec$site == "Costa-Rica_Manu" & est.rerec$distance == 1] <- "open"
+
+table(est.rerec$transect, est.rerec$site, est.rerec$habitat_structure, est.rerec$distance)
+
+
+aggregate(sound.id ~ site + transect + habitat_structure + distance, est.rerec, FUN = function(x) length(unique(x)))
+est.rerec$sound.id <- gsub("_no.harm", "", est.rerec$sound.id)
+
+
+aggregate(sound.id ~ site + transect + habitat_structure + distance, est.rerec, FUN = function(x) length(unique(x)))
+
+est.rerec.rs <- resample_est_waves(est.rerec, bit.depth = 16)
+
+saveRDS(est.rerec.rs, "./data/raw/extended_sel_tab_tests_simulated_sounds_mx_and_cr.RDS")
+
+```
+
+```{r measure degradation manu and mex df, eval = FALSE, echo = FALSE}
+
+est.alg.sim.all <- readRDS("./data/raw/extended_sel_tab_tests_simulated_sounds_mx_and_cr.RDS")
+
+source("~/Dropbox/R_package_testing/baRulho/R/internal_functions.R")
+source("~/Dropbox/R_package_testing/baRulho/R/blur_ratio.R")
+
+est.alg.sim.all <- blur_ratio(X = est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+
+# envelope correlation
+source("~/Dropbox/R_package_testing/baRulho/R/envelope_correlation.R")
+est.alg.sim.all <- envelope_correlation(est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+
+# excess attenuation
+source("~/Dropbox/R_package_testing/baRulho/R/excess_attenuation.R")
+
+est.alg.sim.all <- excess_attenuation(X = est.alg.sim.all, pb = FALSE, cores =10, type = "Dabelsteen", ovlp = 50, wl = 1024)
+
+est.alg.sim.all <- sound_pressure_level(est.alg.sim.all, cores = paral, pb = TRUE)
+
+# Signal-to-noise ratio
+source("~/Dropbox/R_package_testing/baRulho/R/signal_to_noise_ratio.R")
+
+est.alg.sim.all <- signal_to_noise_ratio(est.alg.sim.all, mar = 0.025,  pb = TRUE, cores = paral, type = 2)
+
+names(est.alg.sim.all)[ncol(est.alg.sim.all)] <- "signal.to.noise.ratio.t2"
+
+est.alg.sim.all <- signal_to_noise_ratio(est.alg.sim.all, mar = 0.025, pb = TRUE, cores = paral, type = 1)
+
+names(est.alg.sim.all)[ncol(est.alg.sim.all)] <- "signal.to.noise.ratio"
+
+# Cross-correlation
+source("~/Dropbox/R_package_testing/baRulho/R/spcc_distortion.R")
+est.alg.sim.all <- spcc_distortion(est.alg.sim.all, pb = TRUE, cores = paral, ovlp = 10)
+
+# Spectral blur-ratio
+source("~/Dropbox/R_package_testing/baRulho/R/spectrum_blur_ratio.R")
+est.alg.sim.all <- spectrum_blur_ratio(X = est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+
+# Spectral correlation
+source("~/Dropbox/R_package_testing/baRulho/R/spectrum_correlation.R")
+est.alg.sim.all <- spectrum_correlation(est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+
+# Tail-to-signal ratio
+source("~/Dropbox/R_package_testing/baRulho/R/tail_to_signal_ratio.R")
+
+est.alg.sim.all <- tail_to_signal_ratio(X = est.alg.sim.all, pb = TRUE, cores = paral, type = 2, mar = 0.01)
+
+names(est.alg.sim.all)[ncol(est.alg.sim.all)] <- "tail.to.noise.ratio"
+
+est.alg.sim.all <- tail_to_signal_ratio(est.alg.sim.all, pb = TRUE, cores = paral, type = 1, mar = 0.01)
+
+
+est.alg.sim.all$environm <- NULL
+
+est.alg.sim.all$habitat_structure <- est.alg.sim.all$Vegetacion
+
+# sapply(degrad_df$SPL.no.bgn, function(x) sum(is.na(x))) /sum(degrad_df$distance > 1)
+
+write.csv(as.data.frame(est.alg.sim.all), "./data/processed/barulho_degradation_metrics_cr_and_mx.csv", row.names = FALSE)
+# 
+# degrad_df$SNR <- sapply(degrad_df$sound.files, function(x) est.alg.sim.all$signal.to.noise.ratio[est.alg.sim.all$sound.files == x])
+
+```
+
+```{r measure degradation, eval = FALSE, echo = FALSE}
+
+# blur ratio
+est.alg.sim.all <- blur_ratio(X = est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+
+# envelope correlation
+est.alg.sim.all <- envelope_correlation(est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+
+# excess attenuation
+est.alg.sim.all <- excess_attenuation(X = est.alg.sim.all, pb = FALSE, cores =10, type = "Dabelsteen", ovlp = 50, wl = 1024)
+
+# sound pressure level
+est.alg.sim.all <- warbleR::sound_pressure_level(est.alg.sim.all, parallel = paral, pb = TRUE)
+
+# Signal-to-noise ratio
+est.alg.sim.all <- signal_to_noise_ratio(est.alg.sim.all, mar = 0.025, pb = TRUE, cores = paral, type = 1)
+
+# Cross-correlation
+est.alg.sim.all <- spcc_distortion(est.alg.sim.all, pb = TRUE, cores = paral, ovlp = 10)
+
+# Spectral blur-ratio
+est.alg.sim.all <- spectrum_blur_ratio(X = est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+
+# Spectral correlation
+est.alg.sim.all <- spectrum_correlation(est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+
+est.alg.sim.all <- tail_to_signal_ratio(X = est.alg.sim.all, pb = TRUE, cores = paral, type = 2, mar = 0.01)
+
+names(est.alg.sim.all)[ncol(est.alg.sim.all)] <- "tail.to.noise.ratio"
+
+# Tail-to-signal ratio
+est.alg.sim.all <- tail_to_signal_ratio(est.alg.sim.all, pb = TRUE, cores = paral, type = 1, mar = 0.01)
+
+# detection distance
+est.alg.sim.all <- detection_distance(est.alg.sim.all, pb = TRUE, cores = paral, mar = 0.01, spl.cutoff = 5, spl = 85)
+
+# habitat attenuation
+est.alg.sim.all <- habitat_attenuation_coeff(est.alg.sim.all, pb = TRUE, cores = paral, mar = 0.01)
+
+est.alg.sim.all$environm <- NULL
+
+est.alg.sim.all$habitat_structure <- est.alg.sim.all$Vegetacion
+
+write.csv(as.data.frame(est.alg.sim.all), "./data/processed/barulho_degradation_metrics.csv", row.names = FALSE)
+# 
+# degrad_df$SNR <- sapply(degrad_df$sound.files, function(x) est.alg.sim.all$signal.to.noise.ratio[est.alg.sim.all$sound.files == x])
+
+```
+
+
+```{r snr, eval = FALSE}
+
+degrad_df <- read.csv("./data/processed/barulho_degradation_metrics.csv", stringsAsFactors = FALSE)
+
+degrad_df$signal.to.noise.ratio <- NA
+# Signal-to-noise ratio
+degrad_df$signal.to.noise.ratio[est.alg.sim.all$end - est.alg.sim.all$start > 0.15] <- signal_to_noise_ratio(est.alg.sim.all[est.alg.sim.all$end - est.alg.sim.all$start > 0.15, ], mar = 0.025, pb = TRUE, cores = paral, type = 1)$signal.to.noise.ratio
+
+degrad_df$signal.to.noise.ratio[est.alg.sim.all$end - est.alg.sim.all$start < 0.15] <- signal_to_noise_ratio(est.alg.sim.all[est.alg.sim.all$end - est.alg.sim.all$start < 0.15, ], mar = 0.025 / 2, pb = TRUE, cores = paral, type = 1)$signal.to.noise.ratio
+
+```
+
+```{r read data degradation, eval = TRUE, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
+
+degrad_df <- read.csv("./data/processed/barulho_degradation_metrics.csv", stringsAsFactors = FALSE)
+
+master_metadata <- read.csv("./data/raw/consolidated.master.sf_selection_table.csv")
+
+# keep only simulated data (exluding data from a student)
+master_metadata <- master_metadata[2:961, ]
+
+# infer original frequency
+possb_freqs <- seq(0.5, 10, length.out = 20)
+
+master_metadata$freq <- sapply(1:nrow(master_metadata), function(x)
+  possb_freqs[which.min(abs((master_metadata$top.freq[x] + master_metadata$bottom.freq[x]) / 2 - possb_freqs))]  
+)
+
+freq_contour <- freq_ts(master_metadata, length.out = 20, cores =22, img = FALSE, path = "./data/raw/master_sound_file", pb = FALSE)
+
+freq_contour$mean.freq <- rowMeans(freq_contour[, 3:ncol(freq_contour)])
+
+freq_contour$orig_sound_file <- master_metadata$orig.sound.file
+
+degrad_df$frequency <- sapply(1:nrow(degrad_df), function(x)
+  freq_contour$mean.freq[freq_contour$orig_sound_file == degrad_df$sound.id[x]]
+  )
+
+degrad_df$sim.frequency <- sapply(1:nrow(degrad_df), function(x)
+  master_metadata$freq[master_metadata$orig.sound.file == degrad_df$sound.id[x]]
+  )
+
+
+degrad_df$habitat_structure <- ifelse(degrad_df$Vegetacion == "abierta", "open", "closed")
+
+degrad_df <- separate(degrad_df, col = sound.id, into = c("Duration", "Freq_modulation", "Amp_modulation", "Harmonicity", "delete"), remove = FALSE, sep = "_")
+
+degrad_df$Duration <- ifelse(degrad_df$Duration == 0.1, "short", "long")
+degrad_df$`Freq_modulation` <- ifelse(degrad_df$`Freq_modulation` == "BB", "fm", "no_fm")
+degrad_df$Harmonicity <- gsub(".wav", "", degrad_df$Harmonicity)
+degrad_df$delete <- NULL
+
+degrad_df$categ <- paste(degrad_df$habitat_structure, as.numeric(degrad_df$sim.freq), sep = "-")
+
+```
+
+```{r add PCA, out.width = "100%"}
+pca_degrad_params <- c("blur.ratio", "spectrum.blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "tail.to.signal.ratio", "tail.to.noise.ratio", "spectrum.correlation")
+
+comp.cases <- complete.cases(degrad_df[,names(degrad_df) %in% pca_degrad_params])
+
+pca <- prcomp(degrad_df[comp.cases, names(degrad_df) %in% pca_degrad_params], scale. = TRUE)
+
+# add to data
+degrad_df$PC1 <- NA
+degrad_df$PC1[comp.cases] <- pca$x[, 1]
+
+# plot rotation values by PC
+pca_rot <- as.data.frame(pca$rotation[, 1:4])
+
+pca_rot_stck <- stack(pca_rot)
+
+pca_rot_stck$variable <- rownames(pca_rot)
+pca_rot_stck$Sign <- ifelse(pca_rot_stck$values > 0, "Positive", "Negative")
+pca_rot_stck$rotation <- abs(pca_rot_stck$values)
+
+ggplot(pca_rot_stck, aes(x = variable, y = rotation, fill = Sign)) +
+    geom_col() + 
+    coord_flip() +
+    scale_fill_viridis_d(alpha = 0.7, begin = 0.3, end = 0.8) +
+    facet_wrap(~ ind)
+```
+
+
+```{r correlation among metrics, out.width = "120%"}
+
+cormat <- cor(degrad_df[, degrad_params], use = "pairwise.complete.obs")
+
+rownames(cormat) <- colnames(cormat) <- names(degrad_params)
+
+cols_corr <- colorRampPalette(c("white", "white", viridis(4, direction = -1)))(10)
+
+cp <- corrplot.mixed(cormat, tl.cex = 0.7,
+               upper.col = cols_corr,
+               lower.col = cols_corr,
+               order = "hclust",
+               lower = "number", 
+               upper = "ellipse",
+               tl.col = "black")
+
+# sort parameters as in clusters for cross correlation
+degrad_params <- degrad_params[match(rownames(cp$corr), names(degrad_params))]
+
+```
+
+# Change with distance by frequency
+```{r plots distance, eval = TRUE, echo = FALSE, fig.width= 10, results='asis'}
+
+plts <- lapply(degrad_params, function(x){
+  
+  # remove distance 1 m for those that compared against 1m
+  X <- if (x %in%  c("blur.ratio", "spectrum.blur.ratio", "PC1", "excess.attenuation.fixed", "envelope.correlation", "cross.correlation", "spectrum.correlation", "excess.attenuation.sw"))
+  degrad_df[degrad_df$distance != 1, ] else degrad_df
+
+  
+  form <- as.formula(paste(x, "~ sim.frequency + habitat_structure + distance"))
+  
+  agg <- aggregate(form, data = X, mean)
+  
+  names(agg)[ncol(agg)] <- "variable"
+  
+  agg$sd <- aggregate(form, data = X, sd)[, x] 
+  
+  plt1 <- ggplot(agg, aes(x = distance, y = variable, col = habitat_structure, group = habitat_structure)) +
+    geom_line(position = position_dodge(0.25)) +
+    geom_point(position = position_dodge(0.25))+
+    scale_color_viridis_d(alpha = 0.7, begin = 0.2, end = 0.8) +
+    geom_errorbar(aes(ymin = variable - sd, 
+                      ymax = variable + sd), width = .2,
+                   position = position_dodge(0.25)) +
+    facet_wrap(~sim.frequency) + 
+    labs(x = "Distance (m)", y = gsub("\\.", " ", x)) +
+    scale_x_continuous(breaks=sort(unique(X$distance))) +
+    theme_classic() 
+  
+  X$by.m <- X[, x] * 10 / X$distance
+  
+   agg <- aggregate(by.m ~ sim.frequency + habitat_structure + distance, data = X, mean)
+  
+  names(agg)[ncol(agg)] <- "variable"
+  
+  agg$sd <- aggregate(by.m ~ sim.frequency + habitat_structure + distance, data = X, sd)[, "by.m"] 
+  
+  plt2 <- ggplot(agg, aes(x = distance, y = variable, col = habitat_structure, group = habitat_structure)) +
+    geom_line(position = position_dodge(0.25)) +
+    geom_point(position = position_dodge(0.25))+
+    scale_color_viridis_d(alpha = 0.7, begin = 0.2, end = 0.8) +
+    geom_errorbar(aes(ymin = variable - sd, 
+                      ymax = variable + sd), width = .2,
+                   position = position_dodge(0.25)) +
+    facet_wrap(~sim.frequency) + 
+    labs(x = "Distance (m)", y = paste0(gsub("\\.", " ", x), " / 10 m")) +
+    scale_x_continuous(breaks=sort(unique(X$distance))) +
+    theme_classic() 
+  return(list(plt1, plt2))
+    
+})
+
+names(plts) <- degrad_params
+
+for(i in 1:length(plts)){
+  
+  cat(paste('<font size="2"> ', gsub("\\.", " ", cap_fun(names(plts)[i])), "</font>"))
+
+  cat("<br>")
+  
+  print(plts[[i]][[1]])
+  print(plts[[i]][[2]])
+  
+  cat("&nbsp;")
+  
+  }
+  
+```
+
+
+# Habitat structure
+```{r plots hab, eval = TRUE, echo = FALSE, fig.width= 10}
+
+plts <- lapply(degrad_params, function(x){
+  
+  # remove distance 1 m for those that compared against 1m
+  # X <- if (x %in%  c("blur.ratio", "spectrum.blur.ratio", "PC1", "excess.attenuation.ma", "envelope.correlation", "cross.correlation", "spectrum.correlation", "excess.attenuation.da"))
+  # degrad_df[degrad_df$distance != 1, ] else degrad_df
+  
+  X <- degrad_df[degrad_df$distance != 1, ]
+  
+  form <- as.formula(paste(x, "~ sim.frequency + habitat_structure + distance"))
+  
+  agg <- aggregate(form, data = X, mean)
+  
+  names(agg)[ncol(agg)] <- "variable"
+  
+  agg$sd <- aggregate(form, data = X, sd)[, x] 
+  
+  plt <- ggplot(agg, aes(x = sim.frequency, y = variable, col = habitat_structure, group = habitat_structure)) +
+    geom_line(position = position_dodge(0.25)) +
+    geom_point(position = position_dodge(0.25))+
+    scale_color_viridis_d(alpha = 0.7, begin = 0.2, end = 0.8) +
+    geom_errorbar(aes(ymin = variable - sd, 
+                      ymax = variable + sd), width = .2,
+                   position = position_dodge(0.25)) +
+    facet_wrap(~distance) + 
+    labs(x = "Frequency (kHz)", y = gsub("\\.", " ", x)) +
+    theme_classic() 
+  
+  return(plt)
+    
+})
+
+names(plts) <- degrad_params
+
+for(i in 1:length(plts)){
+  
+  print(names(plts)[i])
+
+  print(plts[[i]])
+  }
+  
+```
+
+# Frequency modulation and habitat structure
+```{r plots fm, eval = TRUE, echo = FALSE, fig.height = 10, fig.width= 10}
+
+
+plts <- lapply(degrad_params, function(x){
+  
+  # remove distance 1 m for those that compared against 1m
+  # X <- if (x %in%  c("blur.ratio", "spectrum.blur.ratio", "PC1", "excess.attenuation.fixed", "envelope.correlation", "cross.correlation", "spectrum.correlation", "excess.attenuation.sw"))
+  # degrad_df[degrad_df$distance != 1, ] else degrad_df
+  X <- degrad_df[degrad_df$distance != 1, ]
+  
+  form <- as.formula(paste(x, "~ sim.frequency + habitat_structure + distance + Freq_modulation"))
+  
+  agg <- aggregate(form, data = X, mean)
+  
+  names(agg)[ncol(agg)] <- "variable"
+  
+  agg$sd <- aggregate(form, data = X, sd)[, x] 
+  
+  plt <- ggplot(agg, aes(x = sim.frequency, y = variable, col = Freq_modulation, group =  Freq_modulation)) +
+    geom_line(position = position_dodge(0.25)) +
+    geom_point(position = position_dodge(0.25))+
+    scale_color_viridis_d(alpha = 0.7, begin = 0.2, end = 0.8) +
+    geom_errorbar(aes(ymin = variable - sd, 
+                      ymax = variable + sd), width = .2,
+                   position = position_dodge(0.25)) +
+    facet_wrap(~distance + habitat_structure, ncol = 2) + 
+    labs(x = "Frequency (kHz)", y = gsub("\\.", " ", x)) +
+    theme_classic() 
+  
+  return(plt)
+    
+})
+
+names(plts) <- degrad_params
+
+for(i in 1:length(plts)){
+  
+  print(names(plts)[i])
+
+  print(plts[[i]])
+  }
+  
+  
+```
+
+
+# Amplitude modulation and habitat structure
+```{r plots amp, eval = TRUE, echo = FALSE, fig.height = 10, fig.width= 10}
+
+plts <- lapply(degrad_params, function(x){
+  
+   # remove distance 1 m for those that compared against 1m
+  # X <- if (x %in%  c("blur.ratio", "spectrum.blur.ratio", "PC1", "excess.attenuation.fixed", "envelope.correlation", "cross.correlation", "spectrum.correlation", "excess.attenuation.sw"))
+  # degrad_df[degrad_df$distance != 1, ] else degrad_df
+  X <- degrad_df[degrad_df$distance != 1, ]
+  
+  form <- as.formula(paste(x, "~ sim.frequency + habitat_structure + distance + Amp_modulation"))
+  
+  agg <- aggregate(form, data = X, mean)
+  
+  names(agg)[ncol(agg)] <- "variable"
+  
+  agg$sd <- aggregate(form, data = X, sd)[, x] 
+  
+  plt <- ggplot(agg, aes(x = sim.frequency, y = variable, col = Amp_modulation, group =  Amp_modulation)) +
+    geom_line(position = position_dodge(0.25)) +
+    geom_point(position = position_dodge(0.25))+
+     scale_color_viridis_d(alpha = 0.7, begin = 0.2, end = 0.8) +
+    geom_errorbar(aes(ymin = variable - sd, 
+                      ymax = variable + sd), width = .2,
+                   position = position_dodge(0.25)) +
+    facet_wrap(~distance + habitat_structure, ncol = 2) + 
+    labs(x = "Frequency (kHz)", y = gsub("\\.", " ", x)) +
+    theme_classic() 
+  
+  return(plt)
+    
+})
+
+names(plts) <- degrad_params
+
+for(i in 1:length(plts)){
+  
+  print(names(plts)[i])
+
+  print(plts[[i]])
+  }
+  
+```
+
+# Harmonicity and habitat structure
+```{r plots harm, eval = TRUE, echo = FALSE, fig.height = 10, fig.width= 10}
+
+
+plts <- lapply(degrad_params, function(x){
+  
+  # remove distance 1 m for those that compared against 1m
+  # X <- if (x %in%  c("blur.ratio", "spectrum.blur.ratio", "PC1", "excess.attenuation.fixed", "envelope.correlation", "cross.correlation", "spectrum.correlation", "excess.attenuation.sw"))
+  # degrad_df[degrad_df$distance != 1, ] else degrad_df
+  X <- degrad_df[degrad_df$distance != 1, ]
+  
+  form <- as.formula(paste(x, "~ sim.frequency + habitat_structure + distance + Harmonicity"))
+  
+  agg <- aggregate(form, data = X, mean)
+  
+  names(agg)[ncol(agg)] <- "variable"
+  
+  agg$sd <- aggregate(form, data = X, sd)[, x] 
+  
+  plt <- ggplot(agg, aes(x = sim.frequency, y = variable, col = Harmonicity, group =  Harmonicity)) +
+    geom_line(position = position_dodge(0.25)) +
+    geom_point(position = position_dodge(0.25))+
+     scale_color_viridis_d(alpha = 0.7, begin = 0.2, end = 0.8) +
+    geom_errorbar(aes(ymin = variable - sd, 
+                      ymax = variable + sd), width = .2,
+                   position = position_dodge(0.25)) +
+    facet_wrap(~distance + habitat_structure, ncol = 2) + 
+    labs(x = "Frequency (kHz)", y = gsub("\\.", " ", x)) +
+    theme_classic() 
+  
+  return(plt)
+    
+})
+
+names(plts) <- degrad_params
+
+for(i in 1:length(plts)){
+  
+  print(names(plts)[i])
+
+  print(plts[[i]])
+  }
+  
+```
+
+# Duration and habitat structure
+```{r plots dur, eval = TRUE, echo = FALSE, fig.height = 10, fig.width= 10}
+
+plts <- lapply(degrad_params, function(x){
+  
+  # remove distance 1 m for those that compared against 1m
+  # X <- if (x %in%  c("blur.ratio", "spectrum.blur.ratio", "PC1", "excess.attenuation.fixed", "envelope.correlation", "cross.correlation", "spectrum.correlation", "excess.attenuation.sw"))
+  # degrad_df[degrad_df$distance != 1, ] else degrad_df
+    X <- degrad_df[degrad_df$distance != 1, ]
+
+  form <- as.formula(paste(x, "~ sim.frequency + habitat_structure + distance + Duration"))
+  
+  agg <- aggregate(form, data = X, mean)
+  
+  names(agg)[ncol(agg)] <- "variable"
+  
+  agg$sd <- aggregate(form, data = X, sd)[, x] 
+  
+  plt <- ggplot(agg, aes(x = sim.frequency, y = variable, col = Duration, group =  Duration)) +
+    geom_line(position = position_dodge(0.25)) +
+    geom_point(position = position_dodge(0.25))+
+     scale_color_viridis_d(alpha = 0.7, begin = 0.2, end = 0.8) +
+    geom_errorbar(aes(ymin = variable - sd, 
+                      ymax = variable + sd), width = .2,
+                   position = position_dodge(0.25)) +
+    facet_wrap(~distance + habitat_structure, ncol = 2) + 
+    labs(x = "Frequency (kHz)", y = gsub("\\.", " ", x)) +
+    theme_classic() 
+  
+  return(plt)
+    
+})
+
+names(plts) <- degrad_params
+
+for(i in 1:length(plts)){
+  
+  print(names(plts)[i])
+
+  print(plts[[i]])
+  }
+  
+```
+
+# Temperature
+```{r plots temp, eval = TRUE, echo = FALSE, fig.height = 3, fig.width = 10}
+
+qnts <- quantile(degrad_df$Temperatura, c(0.10, 0.90))
+
+sub.degrad_df <- degrad_df[degrad_df$Temperatura < qnts[1] | degrad_df$Temperatura > qnts[2], ]
+
+# sub.degrad_df <- sub.degrad_df[sub.degrad_df$sim.frequency <= 2 | sub.degrad_df$sim.frequency >= 8.5, ]
+
+sub.degrad_df$temp.cat <- ifelse(sub.degrad_df$Temperatura < qnts[1], "< 24 deg", "> 28 deg")  
+
+# sub.degrad_df$sim.frequency.cat <- ifelse(sub.degrad_df$sim.frequency <= 2, "< 2", ">8")  
+
+
+
+plts <- lapply(degrad_params, function(x){
+  
+  if (x == "spectral.blur.ratio") sub.degrad_df <- sub.degrad_df[!is.na(sub.degrad_df$spectral.blur.ratio), ]
+
+  form <- as.formula(paste(x, "~ sim.frequency + habitat_structure + temp.cat"))
+  
+  agg <- aggregate(form, data = sub.degrad_df, mean)
+  
+  names(agg)[ncol(agg)] <- "variable"
+  
+  agg$sd <- aggregate(form, data = sub.degrad_df, sd)[, x] 
+  
+  plt <- ggplot(agg, aes(x = sim.frequency, y = variable, col = interaction(temp.cat, habitat_structure), group =  interaction(temp.cat, habitat_structure))) +
+    geom_line(position = position_dodge(0.25)) +
+    geom_point(position = position_dodge(0.25))+
+     scale_color_viridis_d(alpha = 0.7, begin = 0.2, end = 0.8) +
+    geom_errorbar(aes(ymin = variable - sd, 
+                      ymax = variable + sd), width = .2,
+                   position = position_dodge(0.25)) +
+    # facet_wrap(~distance, ncol = 2) + 
+    labs(x = "Frequency (kHz)", y = gsub("\\.", " ", x)) +
+    theme_classic() 
+  
+  return(plt)
+    
+})
+
+names(plts) <- degrad_params
+
+for(i in 1:length(plts)){
+  
+  print(names(plts)[i])
+
+  print(plts[[i]])
+  }
+  
+```
+
+
+<div class="alert alert-success">
+
+&nbsp; 
+
+# Takeaways
+
+
+</div>
+
+&nbsp;
+
+<!-- '---' adds a gray vertical line -->
+
+---
+
+&nbsp; 
+ 
+ <!-- add packages used, system details and versions  -->
+ 
+<font size="4">Session information</font>
+
+```{r session info, echo=F}
+
+sessionInfo()
+
+```
+
+

@@ -1,0 +1,314 @@
+---
+title: "Create playbacks"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r packages, message=FALSE, warning = FALSE, echo = FALSE, eval = TRUE, include = FALSE}
+
+rm(list = ls())
+
+# unload all non-based packages
+out <- sapply(paste('package:', names(sessionInfo()$otherPkgs), sep = ""), function(x) try(detach(x, unload = FALSE, character.only = TRUE), silent = T))
+
+## add 'developer/' to packages to be installed from github
+x <- c("maRce10/Rraven", "maRce10/warbleR", "maRce10/baRulho", "pbapply")
+
+aa <- lapply(x, function(y) {
+  
+  # get pakage name
+  pkg <- strsplit(y, "/")[[1]]
+  pkg <- pkg[length(pkg)]
+  
+  # check if installed, if not then install 
+  if (!pkg %in% installed.packages()[,"Package"])  {
+
+      if (grepl("/", y))  devtools::install_github(y, force = TRUE) else
+    install.packages(y) 
+    }
+
+  # load package
+  try(require(pkg, character.only = T), silent = T)
+})
+
+```
+
+
+```{r functions, eval = TRUE, echo = FALSE}
+
+
+```
+
+```{r recordings paulina, eval = FALSE, echo = FALSE}
+
+pth <- "./grab_paulina/"
+
+rvn.dat <- imp_raven(sound.file.col = "End File", warbler.format = TRUE, all.data = TRUE, path = pth)
+
+rvn.dat$Ambiente[rvn.dat$Ambiente == "bosque_cerrardo"] <- "bosque_cerrado"
+
+table(rvn.dat$Ambiente)
+
+#stJ <- selection_table(X = rvn.datJ, pb = FALSE)
+ext_pau <- selection_table(X = rvn.dat, pb = FALSE, extended = TRUE, confirm.extended = FALSE, path = pth)
+
+is_extended_selection_table(ext_pau)
+
+## print
+ext_pau
+   
+saveRDS(ext_pau, "est_paulina.RDS")
+
+```
+
+```{r simulation data}
+
+# simulation parameters
+gap <- 0.05
+seed <- 15
+set.seed(seed)
+nharms <- 3
+# frqs <- runif(n = 30, min = 0.5, max = 10)
+frqs <- sample(rep(seq(0.5, 10, length.out = 20), 3))
+steps <- 11
+sig2 <- 0.8
+# amplitude modulation with 2 peaks
+mod.amps <- c(0.5, 1, 2, 3, 2, 1, 2, 3, 2, 1, 0.5) 
+
+# harmonics amplitude
+harm.amp <- c(1, rep(0.5, nharms - 1))
+
+# make all posible combinations
+eg <- expand.grid(dur = c(0.1, 0.2), 
+            fm = c("pure.tone", "BB"), 
+            am = c("no.am", "am"),
+            harm = c("no.harm", "harm"),
+            stringsAsFactors = FALSE
+            )
+
+pboptions(type = "timer")
+
+setwd("./simulated_songs")
+
+# simulate songs
+sim.songs <- pblapply(1:nrow(eg), function(x){
+  
+  if (eg$am[x] == "no.am") am.amps <- 1 else am.amps <- mod.amps
+  if (eg$harm[x] == "no.harm") harms <- 1 else harms <- nharms
+  
+  sm.sng <- sim_songs(n = length(frqs),
+                     durs = eg$dur[x], 
+                     freqs = frqs,
+                     harms = harms,
+                     harm.amps = harm.amp,
+                     gaps = gap,
+                     am.amps = am.amps, 
+                     diff.fun = eg$fm[x], 
+                     selec.table = TRUE, 
+                     sig2 = sig2,
+                    steps = steps,  
+                     file.name = paste(eg[x,], collapse = "_"),
+                    bgn = 0,  
+                    seed = seed)
+
+  # add freq room if pure tone
+  if (eg$fm[x] == "pure.tone") {
+    sm.sng$selec.table$bottom.freq <- sm.sng$selec.table$bottom.freq - 0.2
+    sm.sng$selec.table$top.freq <- sm.sng$selec.table$top.freq + 0.2
+    } 
+  
+  if (eg$harm[x] == "harm") {
+    sm.sng$selec.table$top.freq <- sm.sng$selec.table$top.freq * 1.5
+    } 
+  
+  
+  sm.sng$selec.table$bottom.freq[sm.sng$selec.table$bottom.freq < 0] <- 0.1
+  
+  sm.sng$selec.table$sim.freq <- as.character(frqs)
+  
+  return(sm.sng)
+    
+})
+
+setwd("..")
+
+# name with parameters
+names(sim.songs) <- sapply(1:nrow(eg), function(x) paste(eg[x, ],  collapse = "_"))
+
+
+# shuffle sim.songs
+sim.songs <- sim.songs[sample(1:length(sim.songs))]
+
+# plot spectros
+out <- pblapply(1:length(sim.songs), function(x){
+
+  X <- sim.songs[[x]]
+  
+  jpeg(filename = file.path("./simulated_song_images/",paste0(names(sim.songs)[x], ".jpeg")), width = 1100)    
+  
+  spectro(sim.songs[[x]]$wave, scale = FALSE, palette = reverse.gray.colors.1, grid = FALSE, flim = c(0,10.5), collevels = seq(-20, 0, 1), main = names(sim.songs)[x], osc = TRUE, fastdisp = TRUE)
+  
+  dev.off()
+
+})
+
+# extract select tables
+sim.song.sts <- lapply(sim.songs, function(X) X$selec.table)
+
+sim.song.st <- do.call(rbind, sim.song.sts)
+
+cs <- check_sels(sim.song.st, path = "./simulated_songs")
+
+cs[cs$check.res != "OK",]
+
+# make a single extended selection table for simulation
+sim.song.est <- selection_table(X = sim.song.st, extended = TRUE, pb = FALSE,
+confirm.extended = FALSE, path = "./simulated_songs")
+  
+# read paulinas est
+est.pau <- readRDS("est_paulina.RDS")
+
+# make the 2 ests have the same columns
+est.pau$View <- est.pau$Channel <- est.pau$`File Offset (s)` <- est.pau$`Begin Path` <- est.pau$selec.file <- NULL
+
+est.pau$data.set <- "Paulina"
+sim.song.est$data.set <- "simulations"
+sim.song.est$Ambiente <- NA
+est.pau$sim.freq <- NA
+
+# join
+cons.est <- rbind(sim.song.est, est.pau)
+
+# save
+saveRDS(cons.est, "consolidated.est.RDS")
+
+```
+
+
+```{r make master, eval = FALSE}
+
+cons.est <- readRDS("consolidated.est.RDS")
+
+# create master sound file
+master.sf <- master_sound_file(X = cons.est, file.name = "consolidated_master", gap.duration = 0.05, dest.path = getwd(), overwrite = TRUE, amp.marker = 3)
+
+nrow(master.sf)
+max(master.sf$end) / 60
+
+# lspec(flist = "consolidated_master.wav")
+lspec(X = master.sf)
+
+write.csv(master.sf, "consolidated.master.sf_selection_table.csv", row.names = FALSE)
+
+```
+
+
+```{r align re-recorded sounds}
+
+warbleR_options(wav.path = "./regrabados_bosque_tlalplan", collevels = seq(-60, 0, 5))
+
+check_wavs()
+
+metadat <- readxl::read_excel("base_datos_regrabados_tlalpan.xlsx")
+
+metadat$sound.files <- paste0(metadat$sound.files, ".wav")
+
+
+all(file.exists(file.path("./regrabados_bosque_tlalplan", metadat$sound.files)))
+
+master.sf <- read.csv("consolidated.master.sf_selection_table.csv", stringsAsFactors = FALSE)
+
+cons.est <- readRDS("consolidated.est.RDS")
+# names(master.sf)[ncol(master.sf)] <- "orig.file"
+
+master.sf$data.set <- c(NA, cons.est$data.set, NA)
+master.sf$environm <- c(NA, cons.est$Ambiente, NA)
+
+cs <- check_sels(master.sf)
+
+wavs <- list.files(path = "./regrabados_bosque_tlalplan", pattern = "200303")
+
+re.rec <- wav_dur(files = wavs)
+
+re.rec <- merge(re.rec, metadat[, c("sound.files", "Distancia (m)", "Transecto", "Vegetacion")])
+
+re.rec$sound.files <- as.character(re.rec$sound.files)
+
+# create a matrix that contains the selection/files to be cross-correlated
+comp_mat <- matrix(
+  c(rep(paste(master.sf$sound.files[grep("start_marker",master.sf$orig.sound.file)], master.sf$selec[grep("start_marker",master.sf$orig.sound.file)], sep = "-"), nrow(re.rec))
+    , re.rec$sound.files), 
+  ncol = 2)
+
+# run cross correlation
+xc <- xcorr(master.sf, compare.matrix = comp_mat, wl = 300, ovlp = 30, output = "list")
+
+# find peaks
+pks <- find_peaks(xc.output = xc, max.peak = TRUE)
+
+# align subset of 13 sels
+alg.test.13 <- align_test_files(X =  master.sf[1:13,], Y = pks, path = "./regrabados_bosque_tlalplan", by.song = TRUE, output = "data.frame")
+
+alg.test.13 <- merge(alg.test.13, metadat[, c("sound.files", "Distancia (m)", "Transecto", "Vegetacion")])
+
+# pos aligned manually for 200303-010.wav
+tdiff <- 63.816 -39.245 - 0.017
+
+alg.test.13$start[alg.test.13$sound.files == "200303-010.wav"] <- master.sf$start[1:13] + tdiff
+
+alg.test.13$end[alg.test.13$sound.files == "200303-010.wav"] <- master.sf$end[1:13] + tdiff
+
+alg.test.13$sound.files <- as.character(alg.test.13$sound.files)
+
+spectrograms(alg.test.13[alg.test.13$sound.files == "200303-010.wav", ], by.song = "sound.files", xl = 3, collevels = seq(-60, 0, 5), osci = TRUE, dest.path = "./align_spectros", title.labels = c("sound.files", "Distancia (m)"))
+
+alg.test.all <- align_test_files(X =  master.sf, Y = pks, path = "./regrabados_bosque_tlalplan", by.song = TRUE, output = "data.frame")
+
+alg.test.all$data.set <- rep(master.sf$data.set, 25)
+alg.test.all$environm <- rep(master.sf$environm, 25)
+alg.test.all$orig.sound.file <- rep(master.sf$orig.sound.file, 25)
+
+# pos aligned manually for 200303-010.wav
+tdiff <- 63.816 -39.245 - 0.017
+
+alg.test.all$start[alg.test.all$sound.files == "200303-010.wav"] <- master.sf$start + tdiff
+
+alg.test.all$end[alg.test.all$sound.files == "200303-010.wav"] <- master.sf$end + tdiff
+
+alg.test.all$sound.files <- as.character(alg.test.all$sound.files)
+
+full_spec(alg.test.all, it = "tiff", ovlp = 10, parallel = 3)
+
+move.imgs(from = "./regrabados_bosque_tlalplan", to = "./align_full_spec", it = "tiff", overwrite = TRUE)
+
+nrow(alg.test.all)
+alg.test.all <- alg.test.all[!is.na(alg.test.all$data.set), ]
+
+alg.test.all <- merge(alg.test.all, metadat[,c("sound.files", "Temperatura", "Humedad", "Distancia (m)", "Vegetacion", "Transecto")], all.x = TRUE)
+
+
+alg.test.sim <- alg.test.all[alg.test.all$data.set == "simulations", ] 
+
+nrow(alg.test.sim)
+
+alg.test.pau <- alg.test.all[alg.test.all$data.set == "Paulina", ] 
+
+nrow(alg.test.pau)
+
+cs <- check_sels(alg.test.pau)
+
+
+head(alg.test.pau)
+
+est.alg.pau <- selection_table(alg.test.pau, confirm.extended = FALSE, extended = TRUE, mar = 0.04)
+
+saveRDS(est.alg.pau, "extended_sel_tab_tests_paulina.RDS")
+
+
+est.alg.sim <- selection_table(alg.test.sim, confirm.extended = FALSE, extended = TRUE, mar = 0.04)
+
+saveRDS(est.alg.sim, "extended_sel_tab_tests_simulated_tests_sounds.RDS")
+
+
+```

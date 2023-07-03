@@ -1,0 +1,243 @@
+---
+title: <center><font size="7"><b>Statistical analysis</b></font></center>
+subtitle: <center><font size="4"><b>baRulho:quantifying habitat-induced degradation of (animal) acoustic signals</b> <br>University of Costa Rica</font></center>
+author: <center><font size="3"><a href="https://marceloarayasalas.weebly.com/">Marcelo Araya-Salas</a></font></center>
+date: <center>"`r Sys.Date()`"</center>
+output:
+  html_document:
+    code_folding: hide
+    css: extra.css
+    df_print: tibble
+    highlight: pygments  
+    toc: yes
+    toc_depth: 3
+    toc_float:
+      collapsed: yes
+      smooth_scroll: yes
+fontsize: 12pt 
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- this code add line numbers to code blocks -->
+<!-- only works when code folding is not used in yaml (code_folding: show) -->
+
+<style>
+body
+  { counter-reset: source-line 0; }
+pre.numberSource code
+  { counter-reset: none; }
+</style>
+
+```{r load packages and setup style, echo = FALSE, message = FALSE, warning=FALSE}
+
+# github packages must include user name ("user/package")
+# knitr is require for creating html/pdf/word reports
+# kableExtra is used to print pretty formatted tables 
+# formatR is used for soft-wrapping code
+# klippy is used for adding a copy button to each code block
+pkgs <- c("remotes", "kableExtra", "knitr", "formatR", "rprojroot", "maRce10/warbleR", "maRce10/baRulho", "tidyr", "viridis")
+
+# install/ load packages
+out <- lapply(pkgs, function(y) {
+  
+  # get pakage name
+  pkg <- strsplit(y, "/")[[1]]
+  pkg <- pkg[length(pkg)]
+  
+  # check if installed, if not then install 
+  if (!pkg %in% installed.packages()[,"Package"])  {
+
+      if (grepl("/", y))  remotes::install_github(y, force = TRUE) else
+    install.packages(y) 
+    }
+
+  # load package
+  a <- try(require(pkg, character.only = T), silent = T)
+
+  if (!a) remove.packages(pkg)
+  })
+
+
+# set working directory as project directory or one directory above,
+rootdir <- try(rprojroot::find_rstudio_root_file(), silent = TRUE)
+if (is(rootdir, "try-error")) rootdir <-  ".."
+opts_knit$set(root.dir = rootdir)
+
+# options to customize chunk outputs
+knitr::opts_chunk$set(
+  class.source = "numberLines lineAnchors", # for code line numbers
+  tidy.opts = list(width.cutoff = 65), 
+  tidy = TRUE,
+  message = FALSE
+ )
+
+# this is a customized printing style data frames 
+# screws up tibble function
+tibble <- function(x, ...) { 
+  x <- kbl(x, digits=4, align= 'c', row.names = FALSE) 
+   x <- kable_styling(x, position ="center", full_width = FALSE,  bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
+   asis_output(x)
+}
+
+registerS3method("knit_print", "data.frame", tibble)
+
+# to add copy button to code blocks
+htmltools::tagList(
+  xaringanExtra::use_clipboard(
+    button_text = "<i class=\"fa fa-clipboard\"></i>",
+    success_text = "<i class=\"fa fa-check\" style=\"color: #90BE6D\"></i>",
+    error_text = "<i class=\"fa fa-times-circle\" style=\"color: #F94144\"></i>"
+  ),
+  rmarkdown::html_dependency_font_awesome()
+)
+
+```
+
+
+```{r fix annotations DO NOT RUN, eval = FALSE, echo = FALSE}
+
+dat <-read.csv("./data/raw/consolidated.master.sf_selection_table.csv")
+
+dat <- dat[1:21, ]
+dat$sound.files <- "master.wav"
+
+possb_freqs <- seq(0.5, 10, length.out = 20)
+
+dat$frequency <- sapply(1:nrow(dat), function(x)
+  possb_freqs[which.min(abs((dat$top.freq[x] + dat$bottom.freq[x]) / 2 - possb_freqs))]  
+)
+
+
+dat$duration <- 0.2
+dat$frequency.modulation <- "no.fm"
+dat$amplitude.modulation <- "no.am"
+dat$harmonics <- "pure.tone"
+dat$treatment <- paste0("dur=0.2;freq=", dat$freq, ";no.fm;am;pure.tone")
+
+dat$sound.id <- paste(dat$treatment, 1:nrow(dat) - 1, sep = "_")
+    
+dat$sound.id[1] <- "start_marker"
+    
+dat$treatment[1] <- dat$frequency[1] <- dat$duration[1] <- dat$frequency.modulation[1] <- dat$amplitude.modulation[1] <- dat$harmonics[1] <- NA
+
+dat$orig.sound.file <- NULL
+
+head(dat)
+
+
+write.csv(dat, "./data/raw/example_data/master_anotations.csv", row.names = FALSE)
+
+```
+
+## Load package
+```{r, eval = FALSE}
+
+library(baRulho)
+
+```
+
+
+## Synthetize sounds
+```{r}
+
+synth_est <-
+    synth_sounds(
+        replicates = 3,
+        frequencies = seq(0.5, 10, length.out = 20),
+        durations = c(0.2, 0.1),
+        nharmonics = 3,
+        am = TRUE,
+        fm = TRUE,
+        sig2 = 0.8
+    )
+
+```
+
+# Create master sound file 
+```{r}
+
+master_sound_file(X = synth_est, dest.path = "./data/raw/example_data/", file.name = "delete")
+
+```
+
+# Align sgnals
+```{r, eval = FALSE}
+
+master_annotations <- read.csv("./data/raw/example_data/master_anotations.csv")
+
+
+pth <- "./data/raw/example_data/"
+
+start_position <- search_templates(X = master_annotations, template.rows = 1,  path = pth, test.files = c("reference_1m.wav", "test_sound_10m.wav", "test_sound_30m.wav", "test_sound_65m.wav", "test_sound_100m.wav"))
+
+alg_tests_df <- align_test_files(X = master_annotations, Y = start_position, path = pth, output = "data.frame")
+
+
+alg_tests_est <- align_test_files(X = master_annotations, Y = start_position, path = pth, output = "est")
+
+
+alg_tests_df$distance <- alg_tests_est$distance <- as.numeric(alg_tests_df$distance <- gsub("m.wav|reference_|test_sound_", "", alg_tests_df$sound.files))
+
+sfs <- sapply(strsplit(alg_tests_est$sound.files, ".wav"),"[[", 1)
+
+alg_tests_est <- rename_waves_est(alg_tests_est, new.sound.files = unique(sfs))
+
+alg_tests_est$old.sound.file.name <- NULL
+
+saveRDS(alg_tests_est,  "./data/raw/example_data/aligned_test_sounds_est.RDS")
+
+write.csv(alg_tests_df,  "./data/raw/example_data/aligned_test_sounds.csv", row.names = FALSE)
+
+```
+
+```{r create spectrograms, eval = FALSE, echo= FALSE}
+
+sub_alg_tests_est <- alg_tests_est[alg_tests_est$template %in% alg_tests_est$template[c(4, 8, 10, 11, 3)] & alg_tests_est$template != "start_marker", ]
+
+sub_alg_tests_est <- sub_alg_tests_est[order(sub_alg_tests_est$distance),]
+
+
+# check spectrograms
+spectrograms(alg_tests_est, path = pth, title.labels = "sound.files")
+
+catalog(X = sub_alg_tests_est, flim = c(0, 7), nrow = 5, ncol = 5, ovlp = 90, height = 15, width = 23, same.time.scale = TRUE, mar = 0.04, wl = 512, gr = FALSE, spec.mar = 0.001, lab.mar = 0.001, rm.axes = TRUE, by.row = TRUE, box = FALSE, labels = c("distance"), fast.spec = FALSE, pal = viridis, parallel = 1, collevels = seq(-120, 0, 5))
+
+```
+
+
+# measure degradations
+```{r}
+
+
+```
+
+
+<!-- light green box -->
+
+<div class="alert alert-success">
+
+&nbsp; 
+
+# Takeaways
+
+
+</div>
+
+&nbsp;
+
+<!-- '---' adds a gray vertical line -->
+
+---
+
+&nbsp; 
+ 
+ <!-- add packages used, system details and versions  -->
+ 
+<font size="4">Session information</font>
+
+```{r session info, echo=F}
+
+sessionInfo()
+
+```

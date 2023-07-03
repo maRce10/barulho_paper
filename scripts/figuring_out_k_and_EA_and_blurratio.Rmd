@@ -1,0 +1,127 @@
+---
+title: "Untitled"
+output: html_document
+date: "2022-08-22"
+editor_options: 
+  chunk_output_type: console
+---
+
+
+```{r}
+library(warbleR)
+library(viridis)
+library(corrplot)
+## increase overlap to  99
+
+# OPEN CONTROL
+cmp_sigpro <- function(str = 1, spbr, spk, spc, dist, sel, bp){
+
+    sig <- paste0("~/Dropbox/estudiantes/Marcos Quiroz/sigpro_measuring/controls/dist.1-", sel, ".wav")
+    contr <- readWave(sig)
+
+fcontr <- seewave::ffilter(contr, from = bp[1],
+                           ovlp = 99, to = bp[2], bandpass = TRUE,
+                           wl = 512, output = "Wave")
+
+efcontr <- env(fcontr, plot = FALSE, envt = "hil")
+
+
+rerec <- paste0("~/Dropbox/estudiantes/Marcos Quiroz/sigpro_measuring/precise_cuts/dist.", dist, "-", sel, ".wav")
+
+# OPEN EXP (re recorded at 10 m)
+exp <- readWave(rerec)
+
+
+fexp <- seewave::ffilter(exp, from = bp[1],
+                           ovlp = 99, to = bp[2], bandpass = TRUE,
+                           wl = 512, output = "Wave")
+
+strt <- str
+end <- strt + (length(efcontr) - 1)
+noise.strt <- 8970
+efexp <- env(fexp[strt:end], envt = "hil", plot = FALSE)
+enoise <- env(fexp[noise.strt:length(fexp)], envt = "hil", plot = FALSE)
+
+
+pmfcontr <- efcontr  / sum(efcontr[,1])
+pmfexp <- efexp / sum(efexp[,1])
+
+# plot(pmfexp, type = "l", col = "black")
+# 
+# 
+# points(pmfcontr, type = "l", col = "pink")
+
+diffsignal <- pmfexp[,1] - pmfcontr[,1]
+
+# blur ratio
+br <- sum(abs(diffsignal))  / 2
+
+# e match k
+k <- (mean(efexp)) / mean(efcontr)
+
+df <- data.frame(br = br, k = k, spbr, spk, spc, dist.sel = paste(dist, sel, sep = "-"))
+
+return(df)
+}
+
+
+v <- list()
+v[[length(v) + 1]] <- cmp_sigpro(str = 1280, spbr = .396, spk = 0.105, spc = 0.77, dist = 10, sel = 2, bp = c(7875, 8805))
+v[[length(v) + 1]] <- cmp_sigpro(str = 2752, spbr = .443, spk = 0.08, spc = 0.746, dist = 10, sel = 2, bp = c(7875, 8805))
+v[[length(v) + 1]] <- cmp_sigpro(str = 192, spbr = .148, spk = 0.126, spc = 0.923, dist = 10, sel = 2, bp = c(7875, 8805))
+v[[length(v) + 1]] <- cmp_sigpro(str = 992, spbr = .355, spk = 0.109, spc = 0.803, dist = 10, sel = 2, bp = c(7875, 8805))
+v[[length(v) + 1]] <- cmp_sigpro(str = 2016, spbr = .492, spk = 0.092, spc = 0.71, dist = 10, sel = 2, bp = c(7875, 8805))
+v[[length(v) + 1]] <- cmp_sigpro(str = 1760, spbr = .473, spk = 0.096, spc = 0.726, dist = 10, sel = 2, bp = c(7875, 8805))
+v[[length(v) + 1]] <- cmp_sigpro(str = 3040, spbr = .488, spk = 0.076, spc = 0.715, dist = 10, sel = 2, bp = c(7875, 8805))
+v[[length(v) + 1]] <- cmp_sigpro(str = 4320, spbr = .639, spk = 0.055, spc = 0.604, dist = 10, sel = 2, bp = c(7875, 8805))
+v[[length(v) + 1]] <- cmp_sigpro(str = 1, spbr = .103, spk = 0.130, spc = 0.947, dist = 10, sel = 2, bp = c(7875, 8805))
+v[[length(v) + 1]] <- cmp_sigpro(str = 528, spbr = .258, spk = 0.118, spc = 0.86, dist = 10, sel = 2, bp = c(7875, 8805))
+v[[length(v) + 1]] <- cmp_sigpro(str = 2145, spbr = .483, spk = 0.09, spc = 0.719, dist = 10, sel = 2, bp = c(7875, 8805))
+
+# 4
+v[[length(v) + 1]] <- cmp_sigpro(str = 1, spbr = .06, spk = 0.442, spc = 0.97, dist = 10, sel = 4, bp = c(422, 1223))
+v[[length(v) + 1]] <- cmp_sigpro(str = 1024, spbr = .364, spk = 0.325, spc = 0.79, dist = 10, sel = 4, bp = c(422, 1223))
+v[[length(v) + 1]] <- cmp_sigpro(str = 2560, spbr = .59, spk = 0.218, spc = 0.64, dist = 10, sel = 4, bp = c(422, 1223))
+v[[length(v) + 1]] <- cmp_sigpro(str = 4608, spbr = .61, spk = 0.194, spc = 0.625, dist = 10, sel = 4, bp = c(422, 1223))
+v[[length(v) + 1]] <- cmp_sigpro(str = 3615, spbr = .525, spk = 0.222, spc = 0.689, dist = 10, sel = 4, bp = c(422, 1223))
+v[[length(v) + 1]] <- cmp_sigpro(str = 4096, spbr = .553, spk = 0.212, spc = 0.669, dist = 10, sel = 4, bp = c(422, 1223))
+v[[length(v) + 1]] <- cmp_sigpro(str = 2560, spbr = .591, spk = 0.218, spc = 0.640, dist = 10, sel = 4, bp = c(422, 1223))
+v[[length(v) + 1]] <- cmp_sigpro(str = 1536, spbr = .497, spk = 0.285, spc = 0.709, dist = 10, sel = 4, bp = c(422, 1223))
+v[[length(v) + 1]] <- cmp_sigpro(str = 512, spbr = .237, spk = 0.36, spc = 0.87, dist = 10, sel = 4, bp = c(422, 1223))
+v[[length(v) + 1]] <- cmp_sigpro(str = 256, spbr = .149, spk = 0.382, spc = 0.923, dist = 10, sel = 4, bp = c(422, 1223))
+
+
+res <- do.call(rbind, v)
+
+res$spea <-  (-20 * log(res$spk)) - (20 * log(10 / 10))
+
+res$ea <-  (-20 * log(res$k)) - (20 * log(10 / 10))
+
+cormat <- cor(res[,names(res) != "dist.sel"],
+              use = "pairwise.complete.obs")
+
+cols_corr <- colorRampPalette(c("white", "white", viridis(4, direction = -1)))(10)
+
+cp <- corrplot.mixed(cormat, tl.cex = 0.7, upper.col = cols_corr, lower.col = cols_corr, order = "hclust", lower = "number", upper = "ellipse", tl.col = "black")
+
+
+eg <- data.frame(v1 = c("br", "k", "ea", "k", "spk"), v2 = c("spbr", "spk", "spea", "spc", "spc"))
+
+for (i in 1:nrow(eg)){
+    
+    v1 <- res[, eg$v1[i]]
+    v2 <- res[, eg$v2[i]] 
+    lims <- range(c(v1, v2)) 
+    
+    
+    
+    plot(v1, v2, xlim = lims, ylim = lims, xlab = eg$v1[i], ylab = eg$v2[i], main = paste(eg$v1[i], "vs" ,eg$v2[i]), pch = 20, cex = 2, col = viridis(2)[as.numeric(as.factor(res$dist.sel))])
+    
+    rg <- lm(v2 ~ v1)
+    
+    abline(rg, col = "blue", lty = 3)
+    abline(a= 0, b = 1, col = "red")
+}
+
+```
+

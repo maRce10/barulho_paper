@@ -8,7 +8,7 @@ editor_options:
 ---
 
 <!-- Short Description  -->
-Code for data analysis for paper showcasing the R package baRulho 
+Code for data analysis for paper showcasing the [R package baRulho](https://marce10.github.io/baRulho/)
 
 *Updated on `r Sys.time()`*
 

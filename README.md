@@ -5,9 +5,10 @@ Marcelo Araya_Salas
 
 <!-- Short Description  -->
 
-Code for data analysis for paper showcasing the R package baRulho
+Code for data analysis for paper showcasing the [R package
+baRulho](https://marce10.github.io/baRulho/)
 
-*Updated on 2023-07-03 15:38:59*
+*Updated on 2023-07-03 15:42:12*
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 

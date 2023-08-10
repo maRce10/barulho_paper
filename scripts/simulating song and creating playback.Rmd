@@ -206,18 +206,76 @@ write.csv(master.sf, "consolidated.master.sf_selection_table.csv", row.names = F
 
 ```{r align re-recorded sounds}
 
-warbleR_options(wav.path = "./regrabados_bosque_tlalplan", collevels = seq(-60, 0, 5))
+warbleR_options(wav.path = "./data/raw/tlalpan_data", collevels = seq(-60, 0, 5))
 
 check_wavs()
 
-metadat <- readxl::read_excel("base_datos_regrabados_tlalpan.xlsx")
+metadat <- readxl::read_excel("./data/raw/tlalpan_data/base_datos_regrabados_tlalpan.xlsx")
 
 metadat$sound.files <- paste0(metadat$sound.files, ".wav")
 
 
-all(file.exists(file.path("./regrabados_bosque_tlalplan", metadat$sound.files)))
+all(file.exists(file.path("./data/raw/tlalpan_data", metadat$sound.files)))
 
-master.sf <- read.csv("consolidated.master.sf_selection_table.csv", stringsAsFactors = FALSE)
+master.sf <- read.csv("./data/raw/tlalpan_data/master_annotations.csv", stringsAsFactors = FALSE)
+
+master.sf$sound.files <- "master.wav"
+
+master.sf <- master.sf[c(1:961, nrow(master.sf)), ]
+
+# infer original frequency
+possb_freqs <- seq(0.5, 10, length.out = 20)
+# 
+# master.sf$freq <- sapply(1:nrow(master.sf), function(x)
+#   possb_freqs[which.min(abs((master.sf$top.freq[x] + master.sf$bottom.freq[x]) / 2 - possb_freqs))]  
+# )
+
+freq_contour <- freq_ts(master.sf, length.out = 20, parallel = 22, img = FALSE, path = "./data/raw/tlalpan_data", pb = FALSE)
+
+
+master.sf$mean.freq <- rowMeans(freq_contour[, 3:4])
+master.sf$frequency <- sapply(master.sf$mean.freq, function(x)
+  possb_freqs[which.min(abs(x - possb_freqs))]  
+)
+
+# sd(table(master.sf$freq))
+sd(table(master.sf$frequency))
+
+
+master.sf$sound.id <- gsub(".wav", "", master.sf$orig.sound.file)
+master.sf$sound.id <- gsub("0.1", "short", master.sf$sound.id)
+master.sf$sound.id <- gsub("0.2", "long", master.sf$sound.id)
+
+
+master.sf <- master.sf[grep("no.harm|marker", master.sf$sound.id), ]
+master.sf$sound.id <- gsub("_no.harm", "", master.sf$sound.id)
+master.sf$sound.id <- gsub("no.am", "flat", master.sf$sound.id)
+master.sf$sound.id <- gsub("BB", "fm", master.sf$sound.id)
+master.sf$sound.id <- gsub("pure.tone", "tonal", master.sf$sound.id)
+
+master.sf$sound.id <- paste0("f", master.sf$frequency, "_", master.sf$sound.id)
+
+master.sf$sound.id[2:(nrow(master.sf) - 1)] <- sapply(strsplit(master.sf$sound.id[2:(nrow(master.sf) - 1)], "flat_|am_"), "[[", 1)
+
+
+master.sf$num <- 1
+
+for(i in 2:nrow(master.sf))
+    master.sf$num[i] <- sum(master.sf$sound.id[1:i] == master.sf$sound.id[i])
+
+master.sf$sound.id <- paste0(master.sf$sound.id, master.sf$num)
+grep("f8.5_long_fm", master.sf$sound.id, value = T)
+
+master.sf$sound.id[1] <- "start_marker"
+master.sf$sound.id[nrow(master.sf)] <- "end_marker"
+
+
+master.sf$frequency <- master.sf$freq
+master.sf$orig.sound.file <- master.sf$mean.freq <- master.sf$num  <- master.sf$freq <- NULL 
+
+
+write.csv(master.sf, "/home/m/Dropbox/Projects/barulho_paper/data/raw/tlalpan_data/master_annotations2.csv", row.names = FALSE)
+
 
 cons.est <- readRDS("consolidated.est.RDS")
 # names(master.sf)[ncol(master.sf)] <- "orig.file"
@@ -225,15 +283,24 @@ cons.est <- readRDS("consolidated.est.RDS")
 master.sf$data.set <- c(NA, cons.est$data.set, NA)
 master.sf$environm <- c(NA, cons.est$Ambiente, NA)
 
-cs <- check_sels(master.sf)
+cs <- check_sels(master.sf, path = "./data/raw/tlalpan_data")
 
-wavs <- list.files(path = "./regrabados_bosque_tlalplan", pattern = "200303")
+wavs <- list.files(path = "./data/raw/tlalpan_data", pattern = "200303")
 
 re.rec <- wav_dur(files = wavs)
 
 re.rec <- merge(re.rec, metadat[, c("sound.files", "Distancia (m)", "Transecto", "Vegetacion")])
 
 re.rec$sound.files <- as.character(re.rec$sound.files)
+
+warbleR::fix_wavs("./data/raw/tlalpan_data", samp.rate = 22.05, bit.depth = 16)
+
+# rename files
+
+re.rec$new.name <- paste0("trnsc", re.rec$Transecto, "_", re.rec$`Distancia (m)`, "m_",  ifelse(re.rec$Vegetacion == "abierta", "open", "closed"), ".wav")
+
+
+file.rename(file.path( "./data/raw/tlalpan_data", re.rec$sound.files), to = file.path( "./data/raw/tlalpan_data", re.rec$new.name))
 
 # create a matrix that contains the selection/files to be cross-correlated
 comp_mat <- matrix(

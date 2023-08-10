@@ -1,0 +1,544 @@
+---
+title: Example data analysis for manuscript
+subtitle: baRulho:quantifying habitat-induced degradation of (animal) acoustic signals
+author: Marcelo Araya-Salas
+date: "`r Sys.Date()`"
+toc: true
+toc-depth: 3
+toc-location: left
+number-sections: true
+highlight-style: pygments
+format:
+  html:
+    code-fold: show
+    code-tools: true
+    code-copy: true
+    embed-resources: true
+editor_s: 
+  chunk_output_type: console
+---
+
+
+<!-- this code add line numbers to code blocks -->
+<!-- only works when code folding is not used in yaml (code_folding: show) -->
+
+<style>
+body
+  { counter-reset: source-line 0; }
+pre.numberSource code
+  { counter-reset: none; }
+</style>
+
+```{r setup style, echo = FALSE, message = FALSE, warning=FALSE}
+
+# s to customize chunk outputs
+knitr::opts_chunk$set(
+  class.source = "numberLines lineAnchors", # for code line numbers
+  tidy.opts = list(width.cutoff = 65), 
+  tidy = TRUE,
+  message = FALSE,
+  warning = FALSE
+ )
+
+```
+
+
+```{r load packages and setup style, echo = FALSE, message = FALSE, warning=FALSE}
+
+# github packages must include user name ("user/package")
+# knitr is require for creating html/pdf/word reports
+# kableExtra is used to print pretty formatted tables 
+# formatR is used for soft-wrapping code
+# klippy is used for adding a copy button to each code block
+pkgs <- c("remotes", "kableExtra", "knitr", "formatR", "rprojroot", github = "maRce10/warbleR", github = "maRce10/ohun", github = "maRce10/baRulho", "tidyr", "viridis")
+
+source("~/Dropbox/R_package_testing/sketchy/R/load_packages.R")
+# source("https://raw.githubusercontent.com/maRce10/sketchy/main/R/load_packages.R")
+
+
+# install/ load packages
+load_packages(packages =pkgs)
+
+path_to_files <- "/home/m/Dropbox/Projects/barulho_paper/data/raw/tlalpan_data"
+
+master_annotations <- read.csv(file.path(path_to_files, "master_annotations.csv"))
+
+source("~/Dropbox/R_package_testing/baRulho/R/synth_sounds.R")
+source("~/Dropbox/R_package_testing/baRulho/R/align_test_files.R")
+source("~/Dropbox/R_package_testing/baRulho/R/find_markers.R")
+source("~/Dropbox/R_package_testing/baRulho/R/excess_attenuation.R")
+source("~/Dropbox/R_package_testing/baRulho/R/internal_functions.R")
+```
+
+
+## Load package
+```{r, eval = FALSE}
+
+library(baRulho)
+library(warbleR)
+
+```
+
+## Synthetize sounds
+
+Create synthetic sounds to be used for making the master sound file for playback experiments:
+```{r, eval = FALSE}
+
+synth_data <-
+    synth_sounds(
+        replicates = 3, # number of replicates for each unique combination of varying features
+        frequencies = seq(0.5, 10, length.out = 20),
+        durations = c(0.2, 0.1),
+        am = TRUE, # amplitude modulation
+        fm = TRUE, # frequency modulation
+        sig2 = 0.8, # frequency modulation parameter
+        shuffle = TRUE # randomize the position of sounds 
+    )
+
+```
+
+```{r, eval = TRUE, echo = FALSE}
+
+set.seed(123)
+
+synth_data <-
+    synth_sounds(
+        replicates = 3, # number of replicates for each unique combination of varying features
+        frequencies = seq(0.5, 10, length.out = 20),
+        durations = c(0.2, 0.1),
+        am = TRUE, # amplitude modulation
+        fm = TRUE, # frequency modulation
+        sig2 = 0.8, # frequency modulation parameter
+        shuffle = TRUE # randomize the position of sounds 
+    )
+
+```
+
+The output is of class data frame and [extended selection table](https://marce10.github.io/warbleR/reference/selection_table.html) ([warbleR](https://marce10.github.io/warbleR) package format, here printed as a data frame):
+
+```{r, eval = FALSE}
+
+head(synth_data, 10)
+
+```
+
+```{r, echo = FALSE, results='asis'}
+
+synth_data <- synth_data[synth_data$sound.id %in% master_annotations$sound.id, ]
+mtch <- c(na.omit(match(master_annotations$sound.id, synth_data$sound.id)))
+
+print(mtch)
+
+synth_data <- synth_data[mtch, ]
+
+# cbind(c(1, synth_data$sound.id[1:5]), master_annotations$sound.id[1:6])
+
+
+kbl <- kable(head(synth_data, 10), align = "c", row.names = F,  format = "html", escape = F)
+
+kbl <- kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+
+# kbl <- scroll_box(kbl, width = "800px", height = "300px")
+
+print(kbl)
+
+```
+
+# Create master sound file 
+
+This step puts all sounds together into a single sound file:
+```{r, eval = FALSE}
+master_annotations <- master_sound_file(X = synth_data, # synthetic sound data
+                  file.name = "master", # name of the sound file
+                  gap.duration = 0.2) # duration of silence in between sounds
+```
+
+The output file is saved in the current working directory (can be modified using argument 'path'). A similar file was used for the playback experiments detailed in the paper. The following section shows how to access the test (re-recorded) files.
+
+These are the annotations for the sounds in the master sound files:
+```{r, eval = FALSE}
+
+head(master_annotations)
+
+```
+
+```{r, echo = FALSE, results='asis'}
+
+kbl <- kable(head(master_annotations), align = "c", row.names = F,  format = "html", escape = F)
+
+kbl <- kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+
+print(kbl)
+
+```
+
+## Download data
+
+This code downloads the test files. The files were re-recorded during a transmission experiment at 10, 30, 65 and 100 m:
+```{r, eval = FALSE}
+ 
+path_to_files <-
+    "PATH_TO_FILES" # add folder path to keep master and test files
+
+# directory path where supplementary files have been saved
+
+options(sound.files.path = path_to_files)
+
+download.file(
+    "https://figshare.com/ndownloader/files/41905809",
+    destfile = file.path(path_to_files, "degrad_exp_files.zip"),
+    method = "wget"
+)
+
+unzip(file.path(path_to_files, "degrad_exp_files.zip"),
+      exdir = file.path(path_to_files))
+
+```
+
+
+# Find markers
+
+The code below finds the position of the start and end markers in the test files:
+```{r, eval = FALSE, message=FALSE}
+
+# directory path where supplementary files have been saved
+options(sound.files.path = "PATH_TO_FILES")
+
+markers_in_tests <-
+    find_markers(X = master_annotations)  # annotations of sounds in master file
+
+head(markers_in_tests)
+```
+
+```{r, eval = TRUE, echo = FALSE, results='asis'}
+
+# directory path where supplementary files have been saved
+options(sound.files.path = path_to_files, mc.cores = 20)
+
+markers_in_tests <-
+    find_markers(X = master_annotations,  # annotations of sounds in master file
+                 cores = 20, pb = FALSE) # path to sound files
+
+kbl <- kable(head(markers_in_tests), align = "c", row.names = F,  format = "html", escape = F)
+
+kbl <- kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+
+print(kbl)
+```
+
+The column 'time.mismatch' compares the time difference between the two templates on test-files against that in the master sound file. In a perfect marker detection the value must be 0, meaning that the time in between markers in the master and test files is exactly the same. In this case the average mismatch is of `r round(mean(markers_in_tests$time.mismatch, na.rm = TRUE) * 1000, 0)` ms and the highest of `r round(max(markers_in_tests$time.mismatch, na.rm = TRUE) * 1000, 0)` ms:
+
+
+```{r}
+# average mismatch
+mean(markers_in_tests$time.mismatch, na.rm = TRUE)
+
+# maximum mismatch
+max(markers_in_tests$time.mismatch, na.rm = TRUE)
+
+```
+
+Modifing detection parameters as spectrogram type ('type' argument), time window overlap ('ovlp' argument) and hop size ('hop.size' argument) can be adjusted in order to improve precission. Note that for aligning all other sounds only the marker with the highest correlation will be used. Therefore the time mismatch is likely to be lower in the aligned test sounds.    
+
+# Align sounds
+
+Once we know the position of markers we can compute the position for all other sounds in the test files (i.e. align):
+```{r, eval = FALSE}
+
+aligned_tests <-
+    align_test_files(X = master_annotations, # annotations of sounds in master file
+                     Y = markers_in_tests, # position of markers in test files
+                     output = "data.frame") 
+
+
+head(aligned_tests)
+
+```
+
+```{r, eval = TRUE, echo=FALSE, results='asis'}
+
+options(sound.files.path = path_to_files, mc.cores = 20)
+
+aligned_tests <-
+    align_test_files(X = master_annotations, 
+                     Y = markers_in_tests,
+                     output = "data.frame") 
+
+# Rraven::exp_raven(aligned_tests, sound.file.path = path_to_files, path = path_to_files, file.name = "checking_alignment.txt")
+
+kbl <- kable(head(aligned_tests), align = "c", row.names = F,  format = "html", escape = F)
+
+kbl <- kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+
+print(kbl)
+```
+
+This plot shows the aligned re-recorded sounds for transcect 1:
+```{r spectrogram, eval = FALSE, echo = TRUE}
+
+graphics.off()
+
+lf <- rep(c(0.06, 0.5), each  = 4)
+rg <- rep(c(0.5, 0.95), each  = 4)
+horiz <- seq(0.95, 0.075, length.out = 5)
+btm <- rep(horiz[-1], 2)
+tp <- rep(horiz[-length(horiz)], 2)
+
+m <- cbind(lf, rg, btm, tp)
+
+lf <- c(rep(0.95, each  = 4), 0.06, 0.5, 0, 0)
+rg <- c(rep(1, each  = 4), 0.5, 0.95, 0.05, 1)
+horiz <- seq(0.95, 0.075, length.out = 5)
+btm <- c(horiz[-1], 0.95, 0.95, 0.075, 0)
+tp <- c(horiz[-length(horiz)], 1, 1, 0.95, 0.075)
+
+m2 <- cbind(lf, rg, btm, tp)
+m <- rbind(m, m2)
+
+
+for (e in paste0("trnsc", 1:3)){
+    
+png(filename = paste0("./output/spectrograms_by_habitat_and_distance_", e, ".png"), res = 300, width = 4000, height = 3000)
+
+ss <- split.screen(figs = m)
+
+# # testing layout screens
+# for(i in 1:nrow(m))
+# {screen(i)
+#   par( mar = rep(0, 4))
+#   plot(0.5, xlim = c(0,1), ylim = c(0,1), type = "n", axes = FALSE, xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+#   box()
+#   text(x = 0.5, y = 0.5, labels = i)
+# }
+# close.screen(all.screens = T)
+
+
+ovlp <- 1
+colls <- seq(-110, 0, 5)
+wl <- 512
+
+lab_bg <- viridis(10, alpha = 0.25)[8]
+
+lab_bg <- "#3A3B39"
+files <-
+    c(
+        "_10m_open.wav",
+        "_30m_open.wav",
+        "_65m_open.wav",
+        "_100m_open.wav",
+        "_10m_closed.wav",
+        "_30m_closed.wav",
+        "_65m_closed.wav",
+        "_100m_closed.wav"
+    )
+
+files <- paste0(e, files)
+
+titles <- gsub(paste0(e,"_|_|.wav"), " ", files)
+
+
+# frequency label
+screen(15)
+par(mar = c(0, 0, 0, 0), new = TRUE)
+plot(
+    1,
+    frame.plot = FALSE,
+    type = "n",
+    yaxt = "n",
+    xaxt = "n"
+)
+text(
+    x = 0.9,
+    y = 1,
+    "Frequency (kHz)",
+    srt = 90,
+    cex = 1.6
+)
+
+# time label
+screen(16)
+par(mar = c(0, 0, 0, 0), new = TRUE)
+plot(
+    1,
+    frame.plot = FALSE,
+    type = "n",
+    yaxt = "n",
+    xaxt = "n"
+)
+text(x = 1,
+     y = 0.75,
+     "Time (s)",
+     cex = 1.6)
+
+for (i in seq_along(files)) {
+    # print(i)
+    screen(i)
+    par(mar = c(0, 0, 0, 0))
+    
+    warbleR:::spectro_wrblr_int2(
+        wave = readWave(
+            file.path(path_to_files, files[i]),
+            from = min(aligned_tests$start[aligned_tests$sound.files == files[i]]) - 1.2,
+            to = min(aligned_tests$start[aligned_tests$sound.files == files[i]]) + 4,
+            units = "seconds"
+        ),
+        collevels = colls,
+        ovlp = ovlp,
+        wl = wl,
+        flim = c(0.1, 10.6),
+        palette = viridis,
+        axisX = FALSE,
+        axisY = FALSE,
+        grid = FALSE
+    )
+    
+    # add frequency axis
+    if (grepl("open", aligned_tests$sound.files[aligned_tests$sound.files == files[i]]))
+        axis(2, at = c(seq(2, 10, 2)))
+    
+    # add time axis
+    if (grepl("100m", aligned_tests$sound.files[aligned_tests$sound.files == files[i]]))
+        axis(1)
+    
+    
+    lns <-
+        c(
+            aligned_tests$start[aligned_tests$sound.files == files[i]] - min(aligned_tests$start[aligned_tests$sound.files == files[i]]),
+            aligned_tests$end[aligned_tests$sound.files == files[i]] - min(aligned_tests$start[aligned_tests$sound.files == files[i]])
+        ) + 1.2
+    
+    lns <- c(lns, min(lns) - 0.1, min(lns) - 1.05)
+    
+    abline(
+        v = lns,
+        col = "white",
+        lty = 3,
+        lwd = 1.2
+    )
+    abline(
+        v = lns,
+        col = "white",
+        lty = 3,
+        lwd = 1.2
+    )
+}
+
+vlabs <- paste(c(10, 30, 65, 100), "m")
+
+par(mar = c(0, 0, 0, 0),
+    bg = lab_bg,
+    new = TRUE)
+# add vertical labels
+for (i in 9:12) {
+    screen(i)
+    # par(mar = c(0, 0, 0, 0))
+    par(mar = c(0, 0, 0, 0),
+        bg = lab_bg,
+        new = TRUE)
+    plot(
+        1,
+        frame.plot = FALSE,
+        type = "n",
+        yaxt = "n",
+        xaxt = "n"
+    )
+    text(
+        x = 1,
+        y = 1,
+        vlabs[i - 8],
+        srt = 270,
+        cex = 1.6,
+        col = "white",
+        font = 2
+    )
+    box()
+}
+
+hlabs <- c("Open habitat", "Closed habitat")
+for (i in 13:14) {
+    screen(i)
+    par(mar = c(0, 0, 0, 0),
+        bg = lab_bg,
+        new = TRUE)
+    plot(
+        1,
+        frame.plot = FALSE,
+        type = "n",
+        yaxt = "n",
+        xaxt = "n"
+    )
+    text(
+        x = 1,
+        y = 1,
+        hlabs[i - 12],
+        font = 2,
+        cex = 1.6,
+        col = "white"
+    )
+    box()
+}
+
+dev.off()
+}
+```
+
+![Spectrograms](../output/spectrograms_by_habitat_and_distance_transect2.png)
+
+```{r, echo = FALSE, fig.cap="Fourier spectrograms of test recordings from the second experimental transect in the two habitat types (columns) and four distances (rows). The dotted vertical lines highlight the detected position of sounds computed by the functions find_markers and align_test_files."}
+
+```
+
+# Measuring degradation 
+
+Must degradation metrics involve comparing tests sounds that were recorded at different distances from the speaker, to their reference, which is typically recorded at 1m. Hence, a column indicating the distance at which each sound was recorded is needed. In this case the recording distance can be extracted from the sound file name: 
+```{r}
+# get distance
+aligned_tests$distance <- sapply(strsplit(aligned_tests$sound.files, "_"), "[[", 2)
+
+# make it a numeric column
+aligned_tests$distance <- as.numeric(gsub("m", "", aligned_tests$distance))
+```
+
+
+Once the distance is included in the annotations degradation metrics can be obtained with few lines of code. For instance the following code computes excess attenuation, signal-to-noise ratio, blur ratio and tail-to-signal ratio:
+```{r, eval= FALSE}
+
+# run as a pipe
+aligned_tests <- aligned_tests |>
+    excess_attenuation() |>
+    signal_to_noise_ratio(mar = 0.1) |>
+    blur_ratio() |>
+    tail_to_signal_ratio(mar = 0.1) # mar = margin where to measure tail or noise
+
+head(aligned_tests)
+
+```
+
+
+```{r, eval = TRUE, echo = FALSE, results='asis', message=FALSE, warning=FALSE, }
+
+options(sound.files.path = path_to_files, mc.cores = 20, pb = FALSE)
+
+excs_att <- aligned_tests[aligned_tests$sound.id %in% unique(aligned_tests$sound.id)[1], ] |> excess_attenuation() |> signal_to_noise_ratio(mar = 0.1, path = path_to_files) |> blur_ratio(path = path_to_files) |> tail_to_signal_ratio(mar = 0.1, path = path_to_files)
+
+kbl <- kable(head(excs_att), align = "c", row.names = F,  format = "html", escape = F, pb = FALSE)
+
+kbl <- kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+
+kbl <- scroll_box(kbl, width = "800px", height = "300px")
+
+print(kbl)
+```
+
+
+---
+
+ <!-- add packages used, system details and versions  -->
+ 
+<font size="4">Session information</font>
+
+```{r session info, echo=F}
+
+sessionInfo()
+
+```

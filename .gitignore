@@ -2,3 +2,4 @@ packrat/lib*/
 .Rproj.user
 data/raw/extended_sel_tab_tests_simulated_sounds_mx_and_cr.RDS
 data/raw/extended_sel_tab_tests_simulated_tests_sounds.RDS
+data/raw/tlalpan_data/degrad_exp_files.zip

@@ -40,7 +40,7 @@ knitr::opts_chunk$set(
 # kableExtra is used to print pretty formatted tables 
 # formatR is used for soft-wrapping code
 # klippy is used for adding a copy button to each code block
-pkgs <- c("remotes", "kableExtra", "knitr", "formatR", "rprojroot", github = "maRce10/warbleR", github = "maRce10/ohun", github = "maRce10/baRulho", "tidyr", "viridis")
+pkgs <- c("remotes", "kableExtra", "knitr", "formatR", "rprojroot", github = "maRce10/warbleR", github = "ropensci/ohun", github = "maRce10/baRulho", "tidyr", "viridis")
 
 source("https://raw.githubusercontent.com/maRce10/sketchy/main/R/load_packages.R")
 
@@ -80,7 +80,7 @@ synth_data <-
 # Create master sound file 
 ```{r, eval = FALSE}
 
-master_annotations <- master_sound_file(X = synth_data, # synthetic sound data
+master_annotations <- master_sound_file(X = synth_data, # synthesized sound data
                   file.name = "master", # name of the sound file
                   gap.duration = 0.2) # duration of silence in between sounds
 

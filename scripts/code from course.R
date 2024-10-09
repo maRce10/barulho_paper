@@ -171,7 +171,7 @@ synth.est <- selection_table(X = st, extended = TRUE, pb = FALSE,
 
 library(baRulho)
 # create master sound file
-synth.master.sf <- master_sound_file(X = synth.est, file.name = "synthetic_master", 
+synth.master.sf <- master_sound_file(X = synth.est, file.name = "synthesized_master", 
                                      dest.path = tempdir(), gap.duration = 0.1)
 
 # instalar ghostscript

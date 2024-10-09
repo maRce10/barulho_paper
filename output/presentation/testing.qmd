@@ -1,0 +1,178 @@
+---
+format:
+  revealjs: 
+    dpi: 300
+    fig-dpi: 300
+    code-line-numbers: false
+    code-block-border-left: true
+    slide-number: false
+    chalkboard: 
+      buttons: false
+    preview-links: auto
+    # logo: images/baRulho_letters.png
+    css: styles.css
+    # footer: <a href="https://marce10.github.io/baRulho/">Sound degradation analysis in R</a>
+editor_options: 
+  chunk_output_type: console
+---
+
+
+## {background-color="white" background-image="images/barulho_sticker_no_text.png"}
+
+<br/>
+
+<font size="20"><b><a href="https://marce10.github.io/baRulho/">baRulho R package</a></b></font>
+
+<br/>
+
+<font size="18">Quantifying habitat-induced degradation of animal sounds</font>
+
+<br/>
+
+<b>_Marcelo Araya-Salas</b><br/> Erin E. Grabarczyk<br/> Marcos Quiroz-Oliva<br/> Adrián García-Rodríguez<br/> Alejandro Rico-Guevara_
+
+```{r, eval = FALSE}
+ [1] "#44015466" "#48287866" "#3E4A8966" "#31688E66" "#26828E66"
+ [6] "#1F9E8966" "#35B77966" "#6DCD5966" "#B4DE2C66" "#FDE72566"
+
+
+```
+
+## Habitat-induced sound degradation {visibility="uncounted"}
+
+::: {.fragment .fade-in-then-semi-out}
+- Sound degrades during propagation
+::: 
+
+::: {.fragment .fade-in-then-semi-out}
+- Expected to be finely tuned by natural selection to maximize effectiveness
+:::
+
+![](images/frog3.png){.absolute top="400" left="100" width="700" height="300"}
+
+## 
+
+![](images/spectrograms_by_habitat_and_distance_trnsc2.png){.absolute top=-20 left=0 width=3900}
+
+## Results
+
+![](images/pvalues_grid.jpeg){.absolute top=100 left=0 width="1000"}
+
+
+## {background-color="white" background-image="images/spectrograms_by_habitat_and_distance_trnsc2.png"}
+
+<!-- ![](images/spectrograms_by_habitat_and_distance_trnsc2.png){.absolute top=-40 left=-40 width="1000"} -->
+
+
+
+::: footer
+:::
+
+## <font size= 7>Sound degradation experiment workflow</font> {visibility="uncounted"}
+
+![](images/analysis_workflow_01_zoom.png){.absolute top=90 left=0 width="1000"}
+
+::: footer
+:::
+
+::: {.notes}
+
+- Difficulties have likely contributed to their limited implementation
+
+Conducting sound transmission experiments, however, can be challenging. Several steps are involved, such as careful formatting and manipulation of audio files, broadcasting and re-recording study signals in natural settings, annotation of re-recorded files, and quantification of degradation measures. These difficulties have likely contributed to the limited implementation of such experiments in animal communication research. 
+:::
+
+## <font size= 7>Sound degradation experiment workflow</font> {visibility="uncounted"}
+
+![](images/analysis_workflow_02_zoom.png){.absolute top=90 left=0 width="1000"}
+
+::: footer
+:::
+
+
+
+## Acknowledgements {background="#6DCD5933"}
+
+```{r, echo = FALSE, eval = TRUE}
+
+pkgs <- c("remotes", github = "maRce10/warbleR", github = "maRce10/baRulho", "viridis")
+
+source("~/Dropbox/R_package_testing/sketchy/R/load_packages.R")
+source("~/Dropbox/R_package_testing/sketchy/R/internal_functions.R")
+source("~/Dropbox/R_package_testing/baRulho/R/synth_sounds.R")
+source("~/Dropbox/R_package_testing/baRulho/R/internal_functions.R")
+# source("https://raw.githubusercontent.com/maRce10/sketchy/main/R/load_packages.R")
+
+
+# install/ load packages
+load_packages(packages =pkgs)
+```
+
+::: {.column width="80%"}
+
+- Centro de Investigación en Neurociencias, Universidad de Costa Rica
+- Lab Biocomputines, Universidad de Costa Rica
+- Bioacustics in R Workshop, Instituto de Biología, Universidad Autónoma de México (2019)
+- Luis Sandoval, PhD
+- Packages `seewave` and `tuneR`
+ 
+:::
+
+![](images/ucr.png){.absolute top=70 left=780 width=150} 
+
+![](images/instituo_biolo_unam.png){.absolute top=270 left=720 width=200} 
+
+## Automated aligning re-recorded files
+
+<br/>
+
+```r
+markers_position <- find_markers(
+                    X = master_annotations, 
+                    hop.size = 4)
+```
+
+
+
+![](images/align-crop-optimize.gif){.absolute top=300 left=100 width="900"}
+
+## R package `baRulho` {background="#31688EFF"}
+<br/>
+
+Facilitate implementing (animal) sound degradation experiments:
+
+
+::: {.fragment .fade-in-then-semi-out}
+- Generating synthesized sounds
+:::
+
+::: {.fragment .fade-in-then-semi-out}
+- Creating playback sound files
+:::
+
+::: {.fragment .fade-in-then-semi-out}
+- Streamlining annotating and measuring re-recorded sounds
+:::
+
+::: {.fragment .fade-in-then-semi-out}
+- Explore/quantify sound degradation
+:::
+
+![](images/baRulho_sticker.png){.absolute top=-50 left=580 width=150 height=150}
+
+
+::: {.notes}
+Here, we introduce the R package ‘baRulho’ (Portuguese for ‘noise’), which is intended to facilitate animal sound transmission experiments and their subsequent analysis. The package offers tools to help researchers at each step of the process, from generating synthesized sounds and creating playback sound files, to streamlining annotation and measurement of sound degradation in re-recorded signals.
+:::
+
+## R package `baRulho` {background="#31688EFF"}
+
+![](images/analysis_workflow_06.png){.absolute top=60 left=0 width="970" dpi=1000}
+
+![](images/baRulho_sticker.png){.absolute top=-50 left=580 width=150 height=150}
+
+
+::: footer
+:::
+
+

@@ -18,16 +18,12 @@ editor_options:
   chunk_output_type: console
 ---
 
+```{r set root directory, echo = FALSE}
 
-<!-- this code add line numbers to code blocks -->
-<!-- only works when code folding is not used in yaml (code_folding: show) -->
+# set working directory as one directory above
+knitr::opts_knit$set(root.dir = "..")
 
-<style>
-body
-  { counter-reset: source-line 0; }
-pre.numberSource code
-  { counter-reset: none; }
-</style>
+```
 
 ```{r setup style, echo = FALSE, message = FALSE, warning=FALSE}
 
@@ -100,33 +96,6 @@ out <- lapply(pkgs, function(y) {
 
 ```{r setup chunks, include = FALSE}
 
-# set working directory as project directory or one directory above,
-rootdir <- try(rprojroot::find_rstudio_root_file(), silent = TRUE)
-if (is(rootdir, "try-error")) rootdir <-  ".."
-opts_knit$set(root.dir = rootdir)
-
-# options to customize chunk outputs
-knitr::opts_chunk$set(
-  class.source = "numberLines lineAnchors", # for code line numbers
-  tidy.opts = list(width.cutoff = 65), 
-  tidy = TRUE,
-  message = FALSE,
-  warning = FALSE
- )
-
-# this is a customized printing style data frames 
-# screws up tibble function
-tibble <- function(x, ...) { 
-  x <- kbl(x, digits=4, align= 'c', row.names = FALSE) 
-   x <- kable_styling(x, position ="center", full_width = FALSE,  bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
-   asis_output(x)
-}
-
-registerS3method("knit_print", "data.frame", tibble)
-
-# to add copy button to code blocks
-klippy::klippy(position = c('top', 'right'))
-
 theme_set(theme_classic(base_size = 20))
 
 cap_fun <- function(x) {
@@ -137,19 +106,6 @@ cap_fun <- function(x) {
 
 ```
 
-<style>
-body
-  { counter-reset: source-line 0; }
-pre.numberSource code
-  { counter-reset: none; }
-</style>
-
-
-<!-- '&nbsp;' adds blank space -->
-
-&nbsp; 
-
-<!-- skyblue box -->
 
 <div class="alert alert-info">
 
@@ -253,19 +209,24 @@ saveRDS(est_sigpro_subdata, "./data/raw/extended_sel_tab_tests_simulated_tests_s
 est_sigpro_subdata <- readRDS("./data/raw/extended_sel_tab_tests_simulated_tests_sounds_sigpro_subdata.RDS")
 
 # measure degradation
-est_sigpro_subdata <- signal_to_noise_ratio(est_sigpro_subdata, mar = 0.02, pb = FALSE, parallel = 10, type = 1, wl = 512, ovlp = 50)
+
+options(mc.cores = 20)
+est_sigpro_subdata$sound.id <- est_sigpro_subdata$signal.type
+est_sigpro_subdata <- set_reference_sounds(est_sigpro_subdata)
+
+est_sigpro_subdata <- signal_to_noise_ratio(est_sigpro_subdata, mar = 0.02, pb = FALSE, wl = 512, ovlp = 50)
 source("~/Dropbox/R_package_testing/baRulho/R/internal_functions.R")
 source("~/Dropbox/R_package_testing/baRulho/R/blur_ratio.R")
 
-est_sigpro_subdata <- blur_ratio(est_sigpro_subdata, pb = FALSE, parallel = 1, wl = 512, ovlp = 50, ssmooth = NULL)
+est_sigpro_subdata <- blur_ratio(est_sigpro_subdata, pb = FALSE, wl = 512, ovlp = 50)
 
 source("~/Dropbox/R_package_testing/baRulho/R/tail_to_signal_ratio.R")
 
-est_sigpro_subdata <- tail_to_signal_ratio(est_sigpro_subdata, pb = FALSE, parallel = 10, mar = 0.04, type = 1, wl = 512, ovlp = 0)
+est_sigpro_subdata <- tail_to_signal_ratio(est_sigpro_subdata, pb = FALSE,  mar = 0.04,wl = 512, ovlp = 0)
 
 source("~/Dropbox/R_package_testing/baRulho/R/excess_attenuation.R")
 
-est_sigpro_subdata <- excess_attenuation(X = est_sigpro_subdata, pb = FALSE, parallel = 10, type = "Dabelsteen", ovlp = 50, wl = 1024)
+est_sigpro_subdata <- excess_attenuation(X = est_sigpro_subdata, pb = FALSE, ovlp = 50, wl = 1024)
 
 
 sigpro_data$sound.files <- paste0(sigpro_data$org.sf, ".wav_", sigpro_data$sound)
@@ -339,7 +300,7 @@ comb_data_cols$TSR <- as.numeric(comb_data_cols$TSR)
 comb_data_cols$SNR <- as.numeric(comb_data_cols$SNR)
 comb_data_cols$blur_ratio[comb_data_cols$blur_ratio >= 0.9] <- NA
 
-write.csv(comb_data_cols, "./data/processed/combined_sigpro_barulho.csv", row.names = FALSE)
+write.csv(comb_data_cols, "./data/processed/combined_sigpro_barulho_oct_2024.csv", row.names = FALSE)
 
 ```
 
@@ -402,6 +363,81 @@ for (i in c("TSR", "SNR", "blur_ratio", "excess_attenuation")){
     print(plt)
 }
 ```
+
+Save image:
+
+```{r compare with plots, results= 'asis', fig.height= 3, eval = TRUE}
+
+
+comb_data_cols <- read.csv("./data/processed/combined_sigpro_barulho.csv")
+
+dat <- data.frame(measure = character(), x = numeric(), y = numeric())
+
+for (i in c("TSR", "SNR", "blur_ratio", "excess_attenuation")){
+
+
+    # clips
+    x <- comb_data_cols[comb_data_cols$format ==
+    "Clips", i]
+    y <- comb_data_cols[comb_data_cols$format == "Clips",
+    paste(i, "bRlho", sep = ".")]
+    
+    cr.clps <- cor.test(x, y, use = "pairwise.complete.obs")
+    p <- round(cr.clps$p.value, 3)
+    ranges <- data.frame(measure = i, x = range(c(x, y), na.rm = TRUE), y = range(c(x, y), na.rm = TRUE), type = "range", p = NA, cor = NA)
+    datos <- data.frame(measure = i, x = x, y = y, cor = cr.clps$estimate, p = cr.clps$p.value, type = "obs", row.names = NULL)
+    
+    datos <- rbind(ranges, datos)
+    
+    dat <- rbind(dat, datos)
+        
+   
+}
+
+table(dat$measure, dat$type)
+
+dat$measure <- factor(dat$measure, levels = c("TSR", "SNR", "blur_ratio", "excess_attenuation"))
+levels(dat$measure) <- c("Tail-to-signal ratio", "Signal-to-noise ratio", "Blur ratio", "Excess attenuation")
+
+  x_pos <- sapply(c("Tail-to-signal ratio", "Signal-to-noise ratio", "Blur ratio", "Excess attenuation"), function(i) {
+      x <- na.omit(dat$x[dat$measure == i])
+      res <- max(x) - ((max(x)- min(x)) * 0.05)
+      return(res)
+  })
+
+ y_pos <- sapply(c("Tail-to-signal ratio", "Signal-to-noise ratio", "Blur ratio", "Excess attenuation"), function(i) {
+      x <- na.omit(dat$x[dat$measure == i])
+      res <- max(x) - ((max(x)- min(x)) * 0.8)
+      return(res)
+  })
+
+# Create a new data frame with annotation text and position for each class
+annotation_data <- data.frame(
+  measure = c("Tail-to-signal ratio", "Signal-to-noise ratio", "Blur ratio", "Excess attenuation"),
+  x_pos = x_pos,  # Different y positions for each facet
+  y_pos = y_pos,  # Different y positions for each facet
+  label = c("0.81", "0.95", "0.84", "0.98")
+)
+
+annotation_data$measure <- factor(annotation_data$measure, levels = c("Tail-to-signal ratio", "Signal-to-noise ratio", "Blur ratio", "Excess attenuation"))
+
+
+combined_gg <- ggplot(dat, aes(x = x, y = y, color = type)) +
+    geom_point() +
+    scale_color_manual(values = c(viridis(10, alpha = 0.7)[7], "white")) +
+    facet_wrap( ~ measure, scales = "free") +
+    labs(x = "SIGPRO", y = "baRulho") +
+    geom_abline(slope = 1,
+                intercept = 0,
+                lty = 3) +
+      geom_text(data = annotation_data, aes(x = x_pos, y = y_pos, label = label),
+            color = "orange", size = 5) +
+    theme_classic(base_size = 12) + theme(legend.position="none")
+
+# ggsave(plot = combined_gg, filename = "./output/barulho_vs_sigpro.jpeg", dpi =  300, width = 7, height = 4)
+
+```
+
 
 Removing 100 m test data
 ```{r compare with plots no 1oom data, results = 'asis', fig.height= 3, eval = TRUE}

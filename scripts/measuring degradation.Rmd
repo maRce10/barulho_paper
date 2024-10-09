@@ -39,7 +39,7 @@ editor_options:
 # kableExtra is used to print pretty formatted tables 
 # formatR is used for soft-wrapping code
 # klippy is used for adding a copy button to each code block
-pkgs <- c("remotes", "rlesur/klippy", "kableExtra", "knitr", "formatR", "rprojroot", "maRce10/Rraven", "maRce10/warbleR", "maRce10/baRulho", "ggplot2", "tidyr", "viridis", "corrplot", "brms", "ggdist", "cowplot")
+pkgs <- c("remotes", "kableExtra", "knitr", "formatR", "rprojroot", "maRce10/Rraven", "maRce10/warbleR", "maRce10/baRulho", "ggplot2", "tidyr", "viridis", "corrplot", "brms", "ggdist", "cowplot")
 
 # install/ load packages
 out <- lapply(pkgs, function(y) {
@@ -64,26 +64,11 @@ out <- lapply(pkgs, function(y) {
 
 ```
 
-<!-- this code add line numbers to code blocks -->
-<!-- only works when code folding is not used in yaml (code_folding: show) -->
-
-<style>
-body
-  { counter-reset: source-line 0; }
-pre.numberSource code
-  { counter-reset: none; }
-</style>
 
 ```{r setup chunks, include = FALSE}
 
-# set working directory as project directory or one directory above,
-rootdir <- try(rprojroot::find_rstudio_root_file(), silent = TRUE)
-if (is(rootdir, "try-error")) rootdir <-  ".."
-opts_knit$set(root.dir = rootdir)
-
 # options to customize chunk outputs
 knitr::opts_chunk$set(
-  class.source = "numberLines lineAnchors", # for code line numbers
   tidy.opts = list(width.cutoff = 65), 
   tidy = TRUE,
   message = FALSE,
@@ -92,26 +77,6 @@ knitr::opts_chunk$set(
 
 ```
 
-```{r custom data frame printing, echo = FALSE, message=FALSE}
-
-# this is a customized printing style data frames 
-# screws up tibble function
-tibble <- function(x, ...) { 
-  x <- kbl(x, digits=4, align= 'c', row.names = FALSE) 
-   x <- kable_styling(x, position ="center", full_width = FALSE,  bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
-   asis_output(x)
-}
-
-registerS3method("knit_print", "data.frame", tibble)
-
-```
-
-```{r klippy copy button, echo=FALSE, include=TRUE}
-
-# to add copy button to code blocks
-klippy::klippy(position = c('top', 'right'))
-
-```
 
 ```{r functions, eval = TRUE, echo = FALSE}
 
@@ -125,7 +90,7 @@ theme_set(theme_classic(base_size = 17))
 
 # degrad_params <- c(bl.rt = "blur.ratio", sp.bl.rt = "spectrum.blur.ratio", env.cr = "envelope.correlation",  EA = "excess.attenuation.", SPL = "SPL", SNR.t1 = "signal.to.noise.ratio",SNR.t2 = "signal.to.noise.ratio.t2", SPCC = "cross.correlation", TSR = "tail.to.signal.ratio", TNR = "tail.to.noise.ratio", sp.cr = "spectrum.correlation", PC1 = "PC1")
 
-degrad_params <- c(bl.rt = "blur.ratio", sp.bl.rt = "spectral.blur.ratio", env.cr = "envelope.correlation", EA ="excess.attenuation", SPL = "SPL", SNR.t1 = "signal.to.noise.ratio", SNR.t2 = "signal.to.noise.ratio", SPCC = "cross.correlation",  TSR = "tail.to.signal.ratio", TNR = "tail.to.noise.ratio", sp.cr = "spectrum.correlation", dd = "detection.distance", hac = "habitat.attenuation.coeff", PC1 = "PC1")
+degrad_params <- c(bl.rt = "blur.ratio", sp.bl.rt = "spectrum.blur.ratio", env.cr = "envelope.correlation", EA ="excess.attenuation", SPL = "SPL", SNR.t1 = "signal.to.noise.ratio", SNR.t2 = "signal.to.noise.ratio", SPCC = "cross.correlation",  TSR = "tail.to.signal.ratio", TNR = "tail.to.noise.ratio", sp.cr = "spectrum.correlation", PC1 = "PC1")
 
 cap_fun <- function(x) {
     s <- strsplit(x, " ")[[1]]
@@ -144,198 +109,48 @@ names(est.alg.sim.all)[13] <- "distance"
 est.alg.sim.all$sound.id <- as.character(est.alg.sim.all$template)
 ```
 
-```{r combine data manu and mex df, eval = FALSE, echo = FALSE}
-
-est.mx <- readRDS("./data/raw/extended_sel_tab_tests_simulated_tests_sounds.RDS")
-names(est.mx)[13] <- "distance" 
-est.mx$sound.id <- as.character(est.mx$template)
-est.mx$transect <- est.mx$Transecto
-est.mx$site <- "Mexico_DF"
-
-est.mx$habitat_structure <- ifelse(est.mx$Vegetacion == "abierta", "open", "closed")
-est.mx$data.set <- est.mx$orig.sound.file <- est.mx$Temperatura <- est.mx$environm <-  est.mx$Humedad <-  est.mx$template <- est.mx$Vegetacion <- est.mx$Transecto <- NULL
-
-est.mx2 <- separate(as.data.frame(est.mx), col = sound.id, into = c("duration", "frequency.modulation", "amplitude.modulation", "Harmonicity", "delete"), remove = FALSE, sep = "_")
-
-est.mx <- fix_extended_selection_table(X = est.mx2, est.mx)
-
-est.mx$duration <- ifelse(est.mx$duration == 0.1, "short", "long")
-est.mx$frequency.modulation <- ifelse(est.mx$frequency.modulation == "BB", "fm", "no_fm")
-est.mx$Harmonicity <- gsub(".wav", "", est.mx$Harmonicity)
-est.mx <- est.mx[est.mx$Harmonicity == "no.harm",]
-
-est.mx$Harmonicity <- est.mx$delete <- NULL
-
-
-est.mn <- readRDS("./data/raw/consolidated.est.manu.RDS")
-est.mn$transect <- est.mn$site
-est.mn$habitat_structure <- est.mn$habitat
-est.mn$site <- "Costa-Rica_Manu"
-est.mn$mic.height <- est.mn$speak.height <- est.mn$song <- est.mn$cicadas <- est.mn$template <- est.mn$habitat <- NULL
-
-source("~/Dropbox/R_package_testing/warbleR/R/by_element_est.R")
-est.mn.be <- by_element_est(est.mn, mar = 0.04)
-est.rerec <- rbind(est.mx, est.mn.be)
-
-# infer original frequency
-possb_freqs <- seq(0.5, 10, length.out = 20)
-
-est.rerec$frequency <- sapply(1:nrow(est.rerec), function(x)
-  possb_freqs[which.min(abs((est.rerec$top.freq[x] + est.rerec$bottom.freq[x]) / 2 - possb_freqs))]  
-)
-
-est.rerec$sound.id <- gsub("BB", "fm", est.rerec$sound.id)
-est.rerec$sound.id <- gsub("pure.tone", "no.fm", est.rerec$sound.id)
-est.rerec$sound.id <- gsub(".wav", "", est.rerec$sound.id)
-est.rerec$sound.id <- paste(est.rerec$sound.id, ifelse(est.rerec$site == "Mexico_DF", "mx", "cr"), sep = "_")
-
-est.rerec$treatment.replicates <- paste("frq:", est.rerec$frequency, "dur:", est.rerec$duration, est.rerec$amplitude.modulation, est.rerec$frequency.modulation, sep = "_")
-
-est.rerec <- est.rerec[est.rerec$distance %in% c(1, 30), ]
-est.rerec$transect <- gsub("S", "", est.rerec$transect)
-
-est.rerec$transect <- paste0(ifelse(
-est.rerec$site == "Costa-Rica_Manu", "cr", "mx"), 
-est.rerec$transect)
-est.rerec$transect[est.rerec$transect == "crNA"] <- "cr1"
-est.rerec$transect[est.rerec$transect == "cr4"] <- "cr2"
-table(est.rerec$transect, est.rerec$site, est.rerec$distance)
-
-table(est.rerec$transect, est.rerec$site, est.rerec$habitat_structure)
-paste(est.rerec$transect)
-
-
-
-est.rerec$habitat_structure[est.rerec$habitat_structure == "HA"] <- "open"
-est.rerec$habitat_structure[est.rerec$habitat_structure == "HC"] <- "closed"
-est.rerec$habitat_structure[est.rerec$site == "Costa-Rica_Manu" & est.rerec$distance == 1] <- "open"
-
-table(est.rerec$transect, est.rerec$site, est.rerec$habitat_structure, est.rerec$distance)
-
-
-aggregate(sound.id ~ site + transect + habitat_structure + distance, est.rerec, FUN = function(x) length(unique(x)))
-est.rerec$sound.id <- gsub("_no.harm", "", est.rerec$sound.id)
-
-
-aggregate(sound.id ~ site + transect + habitat_structure + distance, est.rerec, FUN = function(x) length(unique(x)))
-
-est.rerec.rs <- resample_est_waves(est.rerec, bit.depth = 16)
-
-saveRDS(est.rerec.rs, "./data/raw/extended_sel_tab_tests_simulated_sounds_mx_and_cr.RDS")
-
-```
-
-```{r measure degradation manu and mex df, eval = FALSE, echo = FALSE}
-
-est.alg.sim.all <- readRDS("./data/raw/extended_sel_tab_tests_simulated_sounds_mx_and_cr.RDS")
-
-source("~/Dropbox/R_package_testing/baRulho/R/internal_functions.R")
-source("~/Dropbox/R_package_testing/baRulho/R/blur_ratio.R")
-
-est.alg.sim.all <- blur_ratio(X = est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
-
-# envelope correlation
-source("~/Dropbox/R_package_testing/baRulho/R/envelope_correlation.R")
-est.alg.sim.all <- envelope_correlation(est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
-
-# excess attenuation
-source("~/Dropbox/R_package_testing/baRulho/R/excess_attenuation.R")
-
-est.alg.sim.all <- excess_attenuation(X = est.alg.sim.all, pb = FALSE, cores =10, type = "Dabelsteen", ovlp = 50, wl = 1024)
-
-est.alg.sim.all <- sound_pressure_level(est.alg.sim.all, cores = paral, pb = TRUE)
-
-# Signal-to-noise ratio
-source("~/Dropbox/R_package_testing/baRulho/R/signal_to_noise_ratio.R")
-
-est.alg.sim.all <- signal_to_noise_ratio(est.alg.sim.all, mar = 0.025,  pb = TRUE, cores = paral, type = 2)
-
-names(est.alg.sim.all)[ncol(est.alg.sim.all)] <- "signal.to.noise.ratio.t2"
-
-est.alg.sim.all <- signal_to_noise_ratio(est.alg.sim.all, mar = 0.025, pb = TRUE, cores = paral, type = 1)
-
-names(est.alg.sim.all)[ncol(est.alg.sim.all)] <- "signal.to.noise.ratio"
-
-# Cross-correlation
-source("~/Dropbox/R_package_testing/baRulho/R/spcc_distortion.R")
-est.alg.sim.all <- spcc_distortion(est.alg.sim.all, pb = TRUE, cores = paral, ovlp = 10)
-
-# Spectral blur-ratio
-source("~/Dropbox/R_package_testing/baRulho/R/spectrum_blur_ratio.R")
-est.alg.sim.all <- spectrum_blur_ratio(X = est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
-
-# Spectral correlation
-source("~/Dropbox/R_package_testing/baRulho/R/spectrum_correlation.R")
-est.alg.sim.all <- spectrum_correlation(est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
-
-# Tail-to-signal ratio
-source("~/Dropbox/R_package_testing/baRulho/R/tail_to_signal_ratio.R")
-
-est.alg.sim.all <- tail_to_signal_ratio(X = est.alg.sim.all, pb = TRUE, cores = paral, type = 2, mar = 0.01)
-
-names(est.alg.sim.all)[ncol(est.alg.sim.all)] <- "tail.to.noise.ratio"
-
-est.alg.sim.all <- tail_to_signal_ratio(est.alg.sim.all, pb = TRUE, cores = paral, type = 1, mar = 0.01)
-
-
-est.alg.sim.all$environm <- NULL
-
-est.alg.sim.all$habitat_structure <- est.alg.sim.all$Vegetacion
-
-# sapply(degrad_df$SPL.no.bgn, function(x) sum(is.na(x))) /sum(degrad_df$distance > 1)
-
-write.csv(as.data.frame(est.alg.sim.all), "./data/processed/barulho_degradation_metrics_cr_and_mx.csv", row.names = FALSE)
-# 
-# degrad_df$SNR <- sapply(degrad_df$sound.files, function(x) est.alg.sim.all$signal.to.noise.ratio[est.alg.sim.all$sound.files == x])
-
-```
-
 ```{r measure degradation, eval = FALSE, echo = FALSE}
 
+est.alg.sim.all <- set_reference_sounds(est.alg.sim.all)
+
+options(mc.cores = 24, hop.size = 11.6, ovlp = 10, pb = TRUE)
+
 # blur ratio
-est.alg.sim.all <- blur_ratio(X = est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+est.alg.sim.all <- blur_ratio(X = est.alg.sim.all)
 
 # envelope correlation
-est.alg.sim.all <- envelope_correlation(est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+est.alg.sim.all <- envelope_correlation(est.alg.sim.all)
 
 # excess attenuation
-est.alg.sim.all <- excess_attenuation(X = est.alg.sim.all, pb = FALSE, cores =10, type = "Dabelsteen", ovlp = 50, wl = 1024)
-
-# sound pressure level
-est.alg.sim.all <- warbleR::sound_pressure_level(est.alg.sim.all, parallel = paral, pb = TRUE)
+est.alg.sim.all <- excess_attenuation(X = est.alg.sim.all, ovlp = 50, wl = 1024, cores = 24)
 
 # Signal-to-noise ratio
-est.alg.sim.all <- signal_to_noise_ratio(est.alg.sim.all, mar = 0.025, pb = TRUE, cores = paral, type = 1)
+est.alg.sim.all <- signal_to_noise_ratio(est.alg.sim.all, mar = 0.025)
 
 # Cross-correlation
-est.alg.sim.all <- spcc_distortion(est.alg.sim.all, pb = TRUE, cores = paral, ovlp = 10)
+est.alg.sim.all <- spcc(est.alg.sim.all)
 
 # Spectral blur-ratio
-est.alg.sim.all <- spectrum_blur_ratio(X = est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
+est.alg.sim.all <- spectrum_blur_ratio(X = est.alg.sim.all)
 
 # Spectral correlation
-est.alg.sim.all <- spectrum_correlation(est.alg.sim.all, method = 1, pb = TRUE, cores = paral, ovlp = 10)
-
-est.alg.sim.all <- tail_to_signal_ratio(X = est.alg.sim.all, pb = TRUE, cores = paral, type = 2, mar = 0.01)
-
-names(est.alg.sim.all)[ncol(est.alg.sim.all)] <- "tail.to.noise.ratio"
+est.alg.sim.all <- spectrum_correlation(est.alg.sim.all)
 
 # Tail-to-signal ratio
-est.alg.sim.all <- tail_to_signal_ratio(est.alg.sim.all, pb = TRUE, cores = paral, type = 1, mar = 0.01)
-
-# detection distance
-est.alg.sim.all <- detection_distance(est.alg.sim.all, pb = TRUE, cores = paral, mar = 0.01, spl.cutoff = 5, spl = 85)
+est.alg.sim.all <- tail_to_signal_ratio(est.alg.sim.all, pb = TRUE,  mar = 0.01)
 
 # habitat attenuation
-est.alg.sim.all <- habitat_attenuation_coeff(est.alg.sim.all, pb = TRUE, cores = paral, mar = 0.01)
-
 est.alg.sim.all$environm <- NULL
-
-est.alg.sim.all$habitat_structure <- est.alg.sim.all$Vegetacion
 
 write.csv(as.data.frame(est.alg.sim.all), "./data/processed/barulho_degradation_metrics.csv", row.names = FALSE)
 # 
 # degrad_df$SNR <- sapply(degrad_df$sound.files, function(x) est.alg.sim.all$signal.to.noise.ratio[est.alg.sim.all$sound.files == x])
+
+np <- noise_profile(X = est.alg.sim.all, mar = 0.01, noise.ref = "adjacent")
+
+np$amp <- np$amp * -1 
+
+write.csv(np, "./data/processed/noise_profiles.csv", row.names = FALSE)
 
 ```
 
@@ -397,6 +212,7 @@ degrad_df$categ <- paste(degrad_df$habitat_structure, as.numeric(degrad_df$sim.f
 ```
 
 ```{r add PCA, out.width = "100%"}
+
 pca_degrad_params <- c("blur.ratio", "spectrum.blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "tail.to.signal.ratio", "tail.to.noise.ratio", "spectrum.correlation")
 
 comp.cases <- complete.cases(degrad_df[,names(degrad_df) %in% pca_degrad_params])

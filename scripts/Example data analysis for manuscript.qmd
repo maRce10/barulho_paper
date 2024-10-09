@@ -1,33 +1,30 @@
 ---
-title: Example data analysis for manuscript
+title: Quantifying degradation in synthesized sounds
 subtitle: baRulho:quantifying habitat-induced degradation of (animal) acoustic signals
-author: Marcelo Araya-Salas
+# author: Marcelo Araya-Salas
 date: "`r Sys.Date()`"
 toc: true
 toc-depth: 3
 toc-location: left
 number-sections: true
 highlight-style: pygments
+df-print: kable
+# format:
+#   pdf:
+#     toc: true
+#     number-sections: true
+#     colorlinks: true
 format:
   html:
     code-fold: show
     code-tools: true
     code-copy: true
     embed-resources: true
-editor_s: 
+editor_s:
+  chunk_output_type: console
+editor_options:
   chunk_output_type: console
 ---
-
-
-<!-- this code add line numbers to code blocks -->
-<!-- only works when code folding is not used in yaml (code_folding: show) -->
-
-<style>
-body
-  { counter-reset: source-line 0; }
-pre.numberSource code
-  { counter-reset: none; }
-</style>
 
 ```{r setup style, echo = FALSE, message = FALSE, warning=FALSE}
 
@@ -40,6 +37,9 @@ knitr::opts_chunk$set(
   warning = FALSE
  )
 
+# set working directory as one directory above
+knitr::opts_knit$set(root.dir = "..")
+
 ```
 
 
@@ -50,7 +50,7 @@ knitr::opts_chunk$set(
 # kableExtra is used to print pretty formatted tables 
 # formatR is used for soft-wrapping code
 # klippy is used for adding a copy button to each code block
-pkgs <- c("remotes", "kableExtra", "knitr", "formatR", "rprojroot", github = "maRce10/warbleR", github = "maRce10/ohun", github = "maRce10/baRulho", "tidyr", "viridis")
+pkgs <- c("remotes", "kableExtra", "knitr", "formatR", "rprojroot", github = "maRce10/warbleR", github = "maRce10/ohun", github = "ropensci/baRulho", "tidyr", "viridis", "ggplot2")
 
 source("~/Dropbox/R_package_testing/sketchy/R/load_packages.R")
 # source("https://raw.githubusercontent.com/maRce10/sketchy/main/R/load_packages.R")
@@ -59,15 +59,11 @@ source("~/Dropbox/R_package_testing/sketchy/R/load_packages.R")
 # install/ load packages
 load_packages(packages =pkgs)
 
-path_to_files <- "/home/m/Dropbox/Projects/barulho_paper/data/raw/tlalpan_data"
+path_to_files <- "./data/raw/tlalpan_data"
 
 master_annotations <- read.csv(file.path(path_to_files, "master_annotations.csv"))
 
-source("~/Dropbox/R_package_testing/baRulho/R/synth_sounds.R")
-source("~/Dropbox/R_package_testing/baRulho/R/align_test_files.R")
-source("~/Dropbox/R_package_testing/baRulho/R/find_markers.R")
-source("~/Dropbox/R_package_testing/baRulho/R/excess_attenuation.R")
-source("~/Dropbox/R_package_testing/baRulho/R/internal_functions.R")
+
 ```
 
 
@@ -76,12 +72,15 @@ source("~/Dropbox/R_package_testing/baRulho/R/internal_functions.R")
 
 library(baRulho)
 library(warbleR)
+library(ggplot2)
+library(cowplot)
+library(grid)
 
 ```
 
 ## Synthetize sounds
 
-Create synthetic sounds to be used for making the master sound file for playback experiments:
+Create synthesized sounds to be used for making the master sound file for playback experiments:
 ```{r, eval = FALSE}
 
 synth_data <-
@@ -127,20 +126,21 @@ head(synth_data, 10)
 synth_data <- synth_data[synth_data$sound.id %in% master_annotations$sound.id, ]
 mtch <- c(na.omit(match(master_annotations$sound.id, synth_data$sound.id)))
 
-print(mtch)
-
 synth_data <- synth_data[mtch, ]
 
 # cbind(c(1, synth_data$sound.id[1:5]), master_annotations$sound.id[1:6])
 
 
-kbl <- kable(head(synth_data, 10), align = "c", row.names = F,  format = "html", escape = F)
+kbl <- kableExtra::kable(head(synth_data, 10), align = "c", row.names = F,  format = "html", escape = F)
 
-kbl <- kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+if(knitr::is_html_output(excludes = "markdown"))
+kbl <- kableExtra::kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
 
-# kbl <- scroll_box(kbl, width = "800px", height = "300px")
+# kbl <- kableExtra::scroll_box(kbl, width = "800px", height = "300px")
 
-print(kbl)
+if (knitr::is_html_output(excludes = "markdown"))
+print(kbl) else
+  kableExtra::landscape(knitr::kable(head(synth_data, 10), row.names = FALSE))
 
 ```
 
@@ -148,7 +148,7 @@ print(kbl)
 
 This step puts all sounds together into a single sound file:
 ```{r, eval = FALSE}
-master_annotations <- master_sound_file(X = synth_data, # synthetic sound data
+master_annotations <- master_sound_file(X = synth_data, # synthesized sound data
                   file.name = "master", # name of the sound file
                   gap.duration = 0.2) # duration of silence in between sounds
 ```
@@ -164,17 +164,20 @@ head(master_annotations)
 
 ```{r, echo = FALSE, results='asis'}
 
-kbl <- kable(head(master_annotations), align = "c", row.names = F,  format = "html", escape = F)
+kbl <- kableExtra::kable(head(master_annotations), align = "c", row.names = F,  format = "html", escape = F)
 
-kbl <- kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+kbl <- kableExtra::kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
 
-print(kbl)
+if (knitr::is_html_output(excludes = "markdown"))
+print(kbl) else
+  kableExtra::landscape(knitr::kable(head(master_annotations, 10), row.names = FALSE))
+
 
 ```
 
 ## Download data
 
-This code downloads the test files. The files were re-recorded during a transmission experiment at 10, 30, 65 and 100 m:
+This code downloads the test files. Make sure there are no other sound files in the output directory. The files were re-recorded during a transmission experiment at 10, 30, 65 and 100 m:
 ```{r, eval = FALSE}
  
 path_to_files <-
@@ -186,8 +189,7 @@ options(sound.files.path = path_to_files)
 
 download.file(
     "https://figshare.com/ndownloader/files/41905809",
-    destfile = file.path(path_to_files, "degrad_exp_files.zip"),
-    method = "wget"
+    destfile = file.path(path_to_files, "degrad_exp_files.zip")
 )
 
 unzip(file.path(path_to_files, "degrad_exp_files.zip"),
@@ -202,28 +204,32 @@ The code below finds the position of the start and end markers in the test files
 ```{r, eval = FALSE, message=FALSE}
 
 # directory path where supplementary files have been saved
-options(sound.files.path = "PATH_TO_FILES")
+options(sound.files.path = path_to_files)
 
 markers_in_tests <-
     find_markers(X = master_annotations)  # annotations of sounds in master file
 
 head(markers_in_tests)
+
 ```
 
 ```{r, eval = TRUE, echo = FALSE, results='asis'}
 
 # directory path where supplementary files have been saved
-options(sound.files.path = path_to_files, mc.cores = 20)
+options(sound.files.path = path_to_files, mc.cores = 2)
 
 markers_in_tests <-
-    find_markers(X = master_annotations,  # annotations of sounds in master file
-                 cores = 20, pb = FALSE) # path to sound files
+    find_markers(X = master_annotations) 
 
-kbl <- kable(head(markers_in_tests), align = "c", row.names = F,  format = "html", escape = F)
 
-kbl <- kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+kbl <- kableExtra::kable(head(markers_in_tests), align = "c", row.names = F,  format = "html", escape = F)
 
-print(kbl)
+kbl <- kableExtra::kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+
+if (knitr::is_html_output(excludes = "markdown"))
+print(kbl) else
+  kableExtra::landscape(knitr::kable(head(markers_in_tests, 10), row.names = FALSE))
+
 ```
 
 The column 'time.mismatch' compares the time difference between the two templates on test-files against that in the master sound file. In a perfect marker detection the value must be 0, meaning that the time in between markers in the master and test files is exactly the same. In this case the average mismatch is of `r round(mean(markers_in_tests$time.mismatch, na.rm = TRUE) * 1000, 0)` ms and the highest of `r round(max(markers_in_tests$time.mismatch, na.rm = TRUE) * 1000, 0)` ms:
@@ -238,7 +244,7 @@ max(markers_in_tests$time.mismatch, na.rm = TRUE)
 
 ```
 
-Modifing detection parameters as spectrogram type ('type' argument), time window overlap ('ovlp' argument) and hop size ('hop.size' argument) can be adjusted in order to improve precission. Note that for aligning all other sounds only the marker with the highest correlation will be used. Therefore the time mismatch is likely to be lower in the aligned test sounds.    
+Modifying detection parameters as spectrogram type ('type' argument), time window overlap ('ovlp' argument) and hop size ('hop.size' argument) can be adjusted in order to improve precision. Note that for aligning all other sounds only the marker with the highest correlation will be used. Therefore the time mismatch is likely to be lower in the aligned test sounds.    
 
 # Align sounds
 
@@ -247,9 +253,8 @@ Once we know the position of markers we can compute the position for all other s
 
 aligned_tests <-
     align_test_files(X = master_annotations, # annotations of sounds in master file
-                     Y = markers_in_tests, # position of markers in test files
-                     output = "data.frame") 
-
+                     Y = markers_in_tests) # position of markers in test files
+                    
 
 head(aligned_tests)
 
@@ -257,37 +262,86 @@ head(aligned_tests)
 
 ```{r, eval = TRUE, echo=FALSE, results='asis'}
 
-options(sound.files.path = path_to_files, mc.cores = 20)
+options(sound.files.path = path_to_files, mc.cores = parallel::detectCores() -3 , pb = FALSE)
 
+markers_in_tests <-
+    find_markers(X = master_annotations,  # annotations of sounds in master file
+                 cores = 1, pb = F, hop.size = 4, ovlp = 50) # path to sound files
 aligned_tests <-
     align_test_files(X = master_annotations, 
-                     Y = markers_in_tests,
-                     output = "data.frame") 
+                     Y = markers_in_tests) 
 
 # Rraven::exp_raven(aligned_tests, sound.file.path = path_to_files, path = path_to_files, file.name = "checking_alignment.txt")
 
-kbl <- kable(head(aligned_tests), align = "c", row.names = F,  format = "html", escape = F)
+plot_aligned_sounds(aligned_tests, dest.path = tempdir(), ovlp = 99, res = 300, srt = 20)
+# open_wd(tempdir())
 
-kbl <- kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+kbl <- kableExtra::kable(head(aligned_tests), align = "c", row.names = F,  format = "html", escape = F)
 
-print(kbl)
+kbl <- kableExtra::kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+
+if (knitr::is_html_output(excludes = "markdown"))
+print(kbl) else
+  kableExtra::landscape(knitr::kable(head(aligned_tests, 10), row.names = FALSE))
+
 ```
 
-This plot shows the aligned re-recorded sounds for transcect 1:
-```{r spectrogram, eval = FALSE, echo = TRUE}
+Alignments can be manually adjusted with the function `manual_realign()`. he function generates a multipanel graph with the spectrogram of the master sound file in top of that from test sound files, highlighting the position of correspondent test sounds on both in order to simplify assessing and adjusting their alignment. Spectrograms include the first few seconds of the sound files (controlled by 'duration') which is usually enough to tell the precision of the alignment. The lower spectrogram shows a series of 'buttons' that users can click on to control if the test sound file spectrogram (low panel) needs to be moved to the left ("<") or right (">"). Users can also reset the spectrogram to its original position ('reset'), move on to the next sound file in 'X' (test sound file annotations) or stop the process (stop button). The function returns an object similar to the input object 'X' in which the start and end of the sounds have been adjusted:
+
+
+```{r, eval = FALSE}
+
+realigned_tests <-
+    manual_realign(
+        X = aligned_tests,
+        Y = master_annotations,
+        flim = c(0, 6)
+    )
+
+```
+
+
+```{r, eval = TRUE, echo=FALSE}
+
+# saveRDS(realigned_tests, "./data/processed/realigned_tests.RDS")
+
+# realigned_est <- selection_table(realigned_tests, path = path_to_files, extended = TRUE, mar = 0.1)
+
+# get distance
+# realigned_est$distance <- sapply(strsplit(realigned_est$sound.files, "_"), "[[", 2)
+# 
+# # make it a numeric column
+# realigned_est$distance <- as.numeric(gsub("m", "", realigned_est$distance))
+# 
+# realigned_est <- set_reference_sounds(realigned_est, method = 1)
+# 
+# saveRDS(realigned_est, "./data/processed/realigned_est.RDS")
+
+realigned_tests <- readRDS("./data/processed/realigned_tests.RDS")
+
+
+```
+
+
+
+![manual_realign](../output/manual_realign.gif)
+
+This plot shows the aligned re-recorded sounds for transect 1:
+```{r spectrogram, eval = FALSE, echo = FALSE}
+
 
 graphics.off()
 
 lf <- rep(c(0.06, 0.5), each  = 4)
-rg <- rep(c(0.5, 0.95), each  = 4)
+rg <- rep(c(0.5, 0.9), each  = 4)
 horiz <- seq(0.95, 0.075, length.out = 5)
 btm <- rep(horiz[-1], 2)
 tp <- rep(horiz[-length(horiz)], 2)
 
 m <- cbind(lf, rg, btm, tp)
 
-lf <- c(rep(0.95, each  = 4), 0.06, 0.5, 0, 0)
-rg <- c(rep(1, each  = 4), 0.5, 0.95, 0.05, 1)
+lf <- c(rep(max(rg), each  = 4), 0.06, 0.5, 0, 0)
+rg <- c(rep(1, each  = 4), 0.5, max(rg), 0.05, 1)
 horiz <- seq(0.95, 0.075, length.out = 5)
 btm <- c(horiz[-1], 0.95, 0.95, 0.075, 0)
 tp <- c(horiz[-length(horiz)], 1, 1, 0.95, 0.075)
@@ -297,8 +351,10 @@ m <- rbind(m, m2)
 
 
 for (e in paste0("trnsc", 1:3)){
+
+# png(filename = paste0("./output/spectrograms_by_habitat_and_distance_", e, ".png"), res = 300, width = 4000, height = 3000)
     
-png(filename = paste0("./output/spectrograms_by_habitat_and_distance_", e, ".png"), res = 300, width = 4000, height = 3000)
+png(filename = paste0("./output/presentation/images/spectrograms_by_habitat_and_distance_", e, ".png"), res = 300, width = 4000, height = 3000)
 
 ss <- split.screen(figs = m)
 
@@ -313,7 +369,7 @@ ss <- split.screen(figs = m)
 # close.screen(all.screens = T)
 
 
-ovlp <- 1
+ovlp <- 95
 colls <- seq(-110, 0, 5)
 wl <- 512
 
@@ -378,8 +434,8 @@ for (i in seq_along(files)) {
     warbleR:::spectro_wrblr_int2(
         wave = readWave(
             file.path(path_to_files, files[i]),
-            from = min(aligned_tests$start[aligned_tests$sound.files == files[i]]) - 1.2,
-            to = min(aligned_tests$start[aligned_tests$sound.files == files[i]]) + 4,
+            from = min(realigned_tests$start[realigned_tests$sound.files == files[i]]) - 1.2,
+            to = min(realigned_tests$start[realigned_tests$sound.files == files[i]]) + 4,
             units = "seconds"
         ),
         collevels = colls,
@@ -393,18 +449,18 @@ for (i in seq_along(files)) {
     )
     
     # add frequency axis
-    if (grepl("open", aligned_tests$sound.files[aligned_tests$sound.files == files[i]]))
+    if (grepl("open", realigned_tests$sound.files[realigned_tests$sound.files == files[i]][1]))
         axis(2, at = c(seq(2, 10, 2)))
     
     # add time axis
-    if (grepl("100m", aligned_tests$sound.files[aligned_tests$sound.files == files[i]]))
+    if (grepl("100m", realigned_tests$sound.files[realigned_tests$sound.files == files[i]])[1])
         axis(1)
     
     
     lns <-
         c(
-            aligned_tests$start[aligned_tests$sound.files == files[i]] - min(aligned_tests$start[aligned_tests$sound.files == files[i]]),
-            aligned_tests$end[aligned_tests$sound.files == files[i]] - min(aligned_tests$start[aligned_tests$sound.files == files[i]])
+            realigned_tests$start[realigned_tests$sound.files == files[i]] - min(realigned_tests$start[realigned_tests$sound.files == files[i]]),
+            realigned_tests$end[realigned_tests$sound.files == files[i]] - min(realigned_tests$start[realigned_tests$sound.files == files[i]])
         ) + 1.2
     
     lns <- c(lns, min(lns) - 0.1, min(lns) - 1.05)
@@ -480,56 +536,286 @@ for (i in 13:14) {
 
 dev.off()
 }
+
 ```
 
-![Spectrograms](../output/spectrograms_by_habitat_and_distance_transect2.png)
+![Fourier spectrograms of test recordings from the third experimental transect in the two habitat types (columns) and four distances (rows). The dotted vertical lines highlight the detected position of sounds computed by the functions find_markers and align_test_files.](../output/spectrograms_by_habitat_and_distance_transect2.png)
 
 ```{r, echo = FALSE, fig.cap="Fourier spectrograms of test recordings from the second experimental transect in the two habitat types (columns) and four distances (rows). The dotted vertical lines highlight the detected position of sounds computed by the functions find_markers and align_test_files."}
 
 ```
+
+Similar images can be generated for each test sound file with the function 'plot_align_sounds()'.
 
 # Measuring degradation 
 
 Must degradation metrics involve comparing tests sounds that were recorded at different distances from the speaker, to their reference, which is typically recorded at 1m. Hence, a column indicating the distance at which each sound was recorded is needed. In this case the recording distance can be extracted from the sound file name: 
 ```{r}
 # get distance
-aligned_tests$distance <- sapply(strsplit(aligned_tests$sound.files, "_"), "[[", 2)
+realigned_tests$distance <- sapply(strsplit(realigned_tests$sound.files, "_"), "[[", 2)
 
 # make it a numeric column
-aligned_tests$distance <- as.numeric(gsub("m", "", aligned_tests$distance))
+realigned_tests$distance <- as.numeric(gsub("m", "", realigned_tests$distance))
 ```
 
 
-Once the distance is included in the annotations degradation metrics can be obtained with few lines of code. For instance the following code computes excess attenuation, signal-to-noise ratio, blur ratio and tail-to-signal ratio:
+Once the distance is included in the annotations degradation metrics can be obtained with few lines of code. First the function `set_reference_sounds()' is used to define the reference for each test sound:
+
+
+```{r, eval= TRUE}
+
+test_data <- set_reference_sounds(realigned_tests, method = 1)
+
+```
+
+
+For instance the following code computes excess attenuation, signal-to-noise ratio, blur ratio and tail-to-signal ratio:
 ```{r, eval= FALSE}
 
-# run as a pipe
-aligned_tests <- aligned_tests |>
+# get degradation measures
+degrad_df <- blur_ratio(test_data)
+
+degrad_df <- excess_attenuation(degrad_df)
+
+degrad_df <- signal_to_noise_ratio(degrad_df, 
+                                   mar = 0.1) # mar = margin to measure noise
+
+degrad_df <- tail_to_signal_ratio(degrad_df, mar = 0.1) # mar = margin to measure tail
+
+# or as a pipe
+degrad_df <- test_data |>
     excess_attenuation() |>
-    signal_to_noise_ratio(mar = 0.1) |>
+    signal_to_noise_ratio(mar = 0.1) |> # mar = margin to measure noise
     blur_ratio() |>
-    tail_to_signal_ratio(mar = 0.1) # mar = margin where to measure tail or noise
+    tail_to_signal_ratio(mar = 0.1) # mar = margin to measure tail
 
-head(aligned_tests)
+head(degrad_df) # print the first 6 rows
 
 ```
 
 
-```{r, eval = TRUE, echo = FALSE, results='asis', message=FALSE, warning=FALSE, }
+```{r degradation all data, eval= FALSE, echo=FALSE}
+test_data <- readRDS("./data/processed/realigned_est.RDS")
 
-options(sound.files.path = path_to_files, mc.cores = 20, pb = FALSE)
+options(sound.files.path = path_to_files)
 
-excs_att <- aligned_tests[aligned_tests$sound.id %in% unique(aligned_tests$sound.id)[1], ] |> excess_attenuation() |> signal_to_noise_ratio(mar = 0.1, path = path_to_files) |> blur_ratio(path = path_to_files) |> tail_to_signal_ratio(mar = 0.1, path = path_to_files)
+# get degradation measures
+degrad_df <- blur_ratio(test_data)
+degrad_df <- spectrum_blur_ratio(degrad_df, ovlp = 10)
+degrad_df <- excess_attenuation(degrad_df, ovlp = 50, wl = 1024)
+degrad_df <- envelope_correlation(degrad_df, ovlp = 10)
+degrad_df <- spectrum_correlation(degrad_df)
+degrad_df <- spcc(degrad_df, ovlp = 10)
+degrad_df <- signal_to_noise_ratio(degrad_df, mar = 0.025) # mar = margin to measure noise
+degrad_df <- tail_to_signal_ratio(degrad_df, mar = 0.025) # mar = margin to measure tail
 
-kbl <- kable(head(excs_att), align = "c", row.names = F,  format = "html", escape = F, pb = FALSE)
+write.csv(as.data.frame(degrad_df), "./data/processed/barulho_degradation_metrics_sep_2023.csv", row.names = FALSE)
 
-kbl <- kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
-
-kbl <- scroll_box(kbl, width = "800px", height = "300px")
-
-print(kbl)
 ```
 
+```{r, eval = TRUE, echo = FALSE, results='asis', message=FALSE, warning=FALSE}
+
+options(sound.files.path = path_to_files, dest.path = tempdir(), mc.cores = 3, pb =FALSE)
+
+test_data2 <- set_reference_sounds(realigned_tests[realigned_tests$sound.files %in% c("trnsc1_100m_closed.wav", "trnsc1_1m_open.wav") & realigned_tests$sound.id %in% c("dur:0.2;freq:9;fm;am_1", "dur:0.2;freq:4;fm;am_1", "dur:0.2;freq:1;fm;am_1", "dur:0.2;freq:7;fm;am_1", "dur:0.2;freq:9.5;fm;am_1",
+"dur:0.2;freq:4.5;fm;am_1"), ], method = 1)
+
+
+degrad_df <- test_data2 |> excess_attenuation() |> signal_to_noise_ratio(mar = 0.1) |> blur_ratio() |> tail_to_signal_ratio(mar = 0.1)
+
+kbl <- kableExtra::kable(head(degrad_df), align = "c", row.names = F,  format = "html", escape = F, pb = FALSE)
+
+kbl <- kableExtra::kable_styling(kbl, bootstrap_options = "striped", font_size = 14)
+
+kbl <- kableExtra::scroll_box(kbl, width = "800px", height = "300px")
+
+if (knitr::is_html_output(excludes = "markdown"))
+print(kbl) else
+  kableExtra::landscape(knitr::kable(head(degrad_df, 10), row.names = FALSE))
+
+```
+
+
+The package can also generate images to inspect the patterns of degradation on different acoustic dimension. The function 'plot_degradation()' produces JPEG files with a mosaic of visual representations of sounds (spectrograms, power spectrum and amplitude envelopes) for each test sound and correspondent reference sound  
+
+```{r, eval = FALSE, echo=TRUE}
+
+options(dest.path = "DIRECTORY_TO_SAVE_IMAGE_FILES")
+plot_degradation(X = test_data)
+
+```
+
+
+```{r, eval = FALSE, echo=FALSE}
+X <- realigned_tests
+
+X$transect <- gsub("trnsc", "", sapply(strsplit(X$sound.files, "_"), "[[", 1))
+X$transect <- ifelse(grepl("open", X$sound.files), paste(X$transect, "open", sep = " "), paste(X$transect, "closed", sep = " "))
+
+# X$sound.id <- gsub("_1", "", X$sound.id)
+# X$sound.id <- gsub("fm", "fmW\n", X$sound.id, fixed = TRUE)
+
+# X  <- X[X$transect %in% c("1 open", "1 closed", "2 open", "2 closed"), ]
+X <- X[X$sound.id == "dur:0.2;freq:8.5;fm;am_1" & X$transect %in% c("1 open", "1 closed") | X$sound.id == "dur:0.2;freq:3;fm;am_2" & X$transect %in% c("2 open", "2 closed") |  X$sound.id == "dur:0.2;freq:3;fm;am_2" & X$transect %in% c("1 open") & X$distance == 1, ]
+
+X <- X[order(X$sound.id, X$transect, decreasing = TRUE), ]
+
+options(sound.files.path = path_to_files, dest.path = tempdir(), mc.cores = 20, pb = FALSE)
+
+X2 <- set_reference_sounds(X)
+
+# plot_degradation(X2, nrow = 4)
+plot_degradation(X = X2, nrow = 4, dest.path = "./scripts", ovlp = 95)
+```
+
+![Example of the output image files from plot_degradation() showing the spectrogram, amplitude envelope and power spectrum for each test sound and its correspondent reference arranged by sound ID and transect.](plot_degradation_p1.jpeg)
+
+The function `plot_blur_ratio()` can help explore more closely the effects of degradation on signal structure. It generates image files (in 'jpeg' format) for each possible blur ratio estimation in the test sound data. The image files show the spectrograms of both sounds and the overlaid energy distribution (either amplitude envelopes or power spectrum, see argument 'type') as probability mass functions (PMF). The output graphs highlight the mismatch between the compared distribution which represent the estimated blur ratio returned by either `blur_ratio()` or `spectrum_blur_ratio()`.
+
+
+Amplitude envelope blur ratio (or simply blur ratio):
+
+```{r, eval = FALSE}
+
+plot_blur_ratio(X = test_data[test_data$sound.id == "dur:0.1;freq:2.5;fm;am_3", ], ovlp = 95, dest.path = tempdir())
+
+```
+
+```{r, eval = FALSE, echo = FALSE}
+
+plot_blur_ratio(X = test_data[test_data$sound.id == "dur:0.1;freq:0.5;fm;am_2" & test_data$distance %in% c(1, 30) & grepl("trnsc1_1m_open|trnsc2_30m_closed", test_data$sound.files), ], ovlp = 95, path = "/home/m/Dropbox/Projects/barulho_paper/data/raw/tlalpan_data/", dest.path = tempdir(), cores = 20, pb = T, colors = viridis::viridis(3, begin = 0.1, alpha = 0.8), res = 300)
+
+```
+
+![Example of the output image files from plot_blur_ratio() showing the overlaid amplitude envelope of the test sound and its reference, the mismatch between the two, and the spectrograms for both](blur_ratio_dur:0.1;freq:0.5;fm;am_2-trnsc1_1m_open.wav-383-trnsc2_30m_closed.wav-383.jpeg)
+Power spectrum blur ratio:
+
+```{r, eval = FALSE}
+
+plot_blur_ratio(X = test_data, type = "spectrum", ovlp = 95,  dest.path = tempdir())
+
+```
+
+![Example of the output image files from plot_blur_ratio() (when type = 'spectrum') showing the overlaid power spectrum of the test sound and its reference, the mismatch between the two, and the spectrograms for both](spectrum_blur_ratio_dur:0.2;freq:8;fm;am_1-trnsc1_1m_open.wav-13-trnsc3_30m_open.wav-13.jpeg)
+
+Spectrograms are shown within the frequency range of the reference sound and also show vertical lines with the start and end of sounds.
+
+Plotting degradation metrics against distance can give us a sense of how well each of them quantify aspects of degradation as this is expected to increase with distance: 
+
+```{r, eval=FALSE}
+## prepare data 
+# add habitat strucvture
+degrad_df$habitat.structure <-
+    ifelse(grepl("closed", degrad_df$sound.files), "closed", "open")
+names(degrad_df)
+
+# select subset of 3 kHz tonal flat sounds and aggregate by distance
+# mean
+agg_degrad <-
+    aggregate(
+        cbind(
+            blur.ratio,
+            spectrum.blur.ratio,
+            excess.attenuation,
+            envelope.correlation,
+            spectrum.correlation,
+            cross.correlation,
+            signal.to.noise.ratio,
+            tail.to.signal.ratio
+        ) ~ distance + habitat.structure,
+        degrad_df[degrad_df$distance > 1 &
+                      grepl("freq:3;tonal;flat", degrad_df$sound.id),],
+        mean
+    )
+
+# and SD
+agg_degrad_sd <-
+    aggregate(
+        cbind(
+            blur.ratio,
+            spectrum.blur.ratio,
+            excess.attenuation,
+            envelope.correlation,
+            spectrum.correlation,
+            cross.correlation,
+            signal.to.noise.ratio,
+            tail.to.signal.ratio
+        ) ~ distance + habitat.structure,
+        degrad_df[degrad_df$distance > 1 &
+                      grepl("freq:5;tonal;flat", degrad_df$sound.id),],
+        sd
+    )
+
+# stack to use with ggplot2
+stck_degrad <- stack(agg_degrad)
+stck_degrad$distance <-
+    as.numeric(stck_degrad$values[stck_degrad$ind == "distance"])
+stck_degrad$habitat.structure <-
+    stck_degrad$values[stck_degrad$ind == "habitat.structure"]
+stck_degrad <- stck_degrad[-1:-16, ]
+stck_degrad_sd <- stack(agg_degrad_sd)[-1:-16, ]
+stck_degrad$sd <- as.numeric(stck_degrad_sd$values)
+stck_degrad$values <- as.numeric(stck_degrad$values)
+stck_degrad$ind <- gsub("\\.", " ", stck_degrad$ind)
+stck_degrad$ind <- gsub(" to ", "-to-", stck_degrad$ind)
+
+# plot
+gg <- ggplot(data = stck_degrad, aes(x = distance, y = values, color = habitat.structure)) +
+    geom_point(size = 3) +
+    geom_errorbar(aes(ymin = values - sd, ymax = values + sd),
+                  width = 0) +
+    geom_line(aes(colour = habitat.structure, group = habitat.structure)) +
+    scale_color_viridis_d(alpha = 0.6, begin = 0.3, end = 0.8) +
+    facet_wrap( ~ ind, ncol = 2, scales = "free_y") +
+    theme_classic() +
+    scale_x_continuous(
+        breaks = unique(stck_degrad$distance),
+        labels = unique(stck_degrad$distance)
+    ) +
+    labs(color = "Habitat\nstructure", x = "Distance (m)", y = "Values")
+
+gg    
+```
+
+```{r, eval = TRUE, echo=FALSE, fig.cap="Mean degradation metrics (+/- s.d.) by distance and habitat structure types"}
+# saveRDS(gg, "./data/processed/metric_by_distance_ggplot_graph_object.RDS")
+
+readRDS("./data/processed/metric_by_distance_ggplot_graph_object.RDS")
+
+```
+
+Finally, users can explore the variation in background noise across re-recorded files with the function `noise_profile()`, which estimates full spectrum sound pressure levels (i.e. noise profiles) of the ambient noise for annotations or entire sound files:
+
+```{r}
+
+# compute noise profile only for 10 m files
+noise_prof <- noise_profile(X = test_data[test_data$distance == 10,], mar = 0.01, noise.ref = "adjacent", averaged = TRUE)
+
+# get the original sound file name
+noise_prof$org.sound.files <- sapply(strsplit(noise_prof$sound.files, ".wav"), "[[", 1)
+
+# aggregate by frequency and original sound file
+agg_noise_prof <- aggregate(amp ~ freq + org.sound.files, noise_prof, mean)
+
+# add habitat structure and transect info
+agg_noise_prof$habitat.structure <- ifelse(grepl("closed", agg_noise_prof$org.sound.files), "closed", "open")
+agg_noise_prof$transect <- sapply(strsplit(agg_noise_prof$org.sound.files, "_"), "[[", 1)
+
+# plot
+ggplot(data = agg_noise_prof, aes(
+  y = amp,
+  x = freq,
+  col = habitat.structure,
+  lty = transect,
+  group = org.sound.files)) + 
+    geom_point(size = 1, color = "gray") +
+    geom_line(linewidth = 1.4) +
+  scale_color_viridis_d(begin = 0.2, end = 0.8, alpha = 0.5) +
+  labs(x = "Frequency (kHz)", y = "Amplitude (dBA)", color = "Habitat\nstructure", lty = "Transect") +
+  coord_flip() +
+  theme_classic()
+
+```
 
 ---
 

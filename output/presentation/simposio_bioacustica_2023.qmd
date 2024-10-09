@@ -1,0 +1,767 @@
+---
+format:
+  revealjs:
+    embed-resources: true
+    self-contained: true
+    auto-play-media: true 
+    dpi: 300
+    fig-dpi: 300
+    code-line-numbers: false
+    code-block-border-left: true
+    slide-number: false
+    preview-links: auto
+    logo: images/baRulho_letters.png
+    css: styles_revealjs
+    footer: <font size=5><a href="https://marce10.github.io/baRulho/">https://marce10.github.io/baRulho</a></font>
+editor_options: 
+  chunk_output_type: console
+---
+
+## {background-color="white" background-image="images/barulho_sticker_no_text.png"}
+
+
+<font size="20"><b><a href="https://marce10.github.io/baRulho/">baRulho</a></b></font>
+
+<br/>
+
+<font size=20>**Un paquete de R para cuantificar la de degradación de sonidos animales <br/>inducida por el ambiente**</font>
+
+<br/>
+<font size=6><b>Marcelo Araya-Salas</b> (Universidad de Costa Rica)</font><br/> 
+<font size=6>Erin E. Grabarczyk (Valdosta State University)</font><br/> 
+<font size=6>Marcos Quiroz-Oliva (Universidad de Costa Rica)</font><br/> 
+<font size=6>Adrián García-Rodríguez (Universidad de Vienna)</font><br/> 
+<font size=6>Alejandro Rico-Guevara (Universidad de Washington)</font>
+
+```{r, echo = FALSE, eval = TRUE}
+
+pkgs <- c("remotes", github = "maRce10/warbleR", github = "maRce10/baRulho", "viridis", "ggplot2", "cowplot", "grid", "gridExtra")
+
+source("~/Dropbox/R_package_testing/sketchy/R/load_packages.R")
+source("~/Dropbox/R_package_testing/sketchy/R/internal_functions.R")
+source("~/Dropbox/R_package_testing/baRulho/R/synth_sounds.R")
+source("~/Dropbox/R_package_testing/baRulho/R/internal_functions.R")
+# source("https://raw.githubusercontent.com/maRce10/sketchy/main/R/load_packages.R")
+
+
+# install/ load packages
+load_packages(packages =pkgs)
+
+
+knitr::opts_chunk$set(
+ message = FALSE,
+  warning = FALSE
+ )
+```
+
+##  {background-color="white" background-image="images/background.png"}
+
+### Degradación del sonido y evolución de la señal
+
+- El sonido se degrada durante la propagación
+
+- Se espera que la estructura de la señal esté afinada por la selección natural
+
+![](images/frog3.png){.absolute top="250" left="100" width="700" height="300"}
+
+## {visibility="uncounted" background-color="white" background-image="images/background.png"}
+
+### Experimentos de degradación del sonido
+
+Pasos habituales: 
+
+
+![](images/analysis_workflow_01_zoom.png){.absolute top=150 left=50 width="970"}
+
+::: {.notes}
+
+- Difficulties have likely contributed to their limited implementation
+
+Conducting sound transmission experiments, however, can be challenging. Several steps are involved, such as careful formatting and manipulation of audio files, broadcasting and re-recording study signals in natural settings, annotation of re-recorded files, and quantification of degradation measures. These difficulties have likely contributed to the limited implementation of such experiments in animal communication research. 
+:::
+
+## {visibility="uncounted" background-color="white" background-image="images/background.png"}
+
+### Experimentos de degradación del sonido
+
+Pasos habituales: 
+
+![](images/analysis_workflow_02_zoom.png){.absolute top=150 left=50 width="970"}
+
+
+## El paquete `baRulho` {background="#31688EFF"}
+
+Facilitar experimentos de degradación acústica:
+
+![](images/analysis_workflow_barulho.png){.absolute top=150 left=50 width="970"}
+
+::: {.notes}
+Here, we introduce the R package ‘baRulho’ (Portuguese for ‘noise’), which is intended to facilitate animal sound transmission experiments and their subsequent analysis. The package offers tools to help researchers at each step of the process, from generating synthesized sounds and creating playback sound files, to streamlining annotation and measurement of sound degradation in re-recorded signals.
+:::
+
+## Objetivos {background="#31688EFF"}
+
+<br/>
+
+<font color = "#FD9567"><b>1. Estudio: efectos del hábitat y la estructura de la señal en la transmisión mediante sonidos sintetizados</b></font>
+
+<br/>
+
+<font color = "#FD9567"><b>2. Comparar `baRulho` y `Sigpro`</b></font>
+
+
+<!-- ![](images/tlalpan2.jpg){.absolute top=400 left=0 width=2500} -->
+
+::: {.notes}
+We highlight package features with a case study testing the effects of habitat and signal structure on transmission properties using synthesized sounds. In addition, as proof of concept, we compared baRulho's output to that of Sigpro (Pedersen 1998), the most commonly used software for quantifying sound degradation.
+:::
+
+
+## Sintetizar sonidos de tipo animal {background-color="white" background-image="images/background.png"}
+
+Características variables: frecuencia, duración, amplitud y modulación de frecuencia
+
+```{.r}
+synth_est <- synth_sounds(frequencies = c(1, 2, 3, 4, 5),
+                durations = c(0.1, 0.2),
+                fm = TRUE, am = TRUE)
+                
+master_annotations <- master_sound_file(X = synth_data)
+```
+
+```{r,  echo = FALSE, fig.width = 12, fig.height=5, out.width="100%", eval = FALSE}
+
+# master_annotations <- master_sound_file(X = synth_est, # synthesized sound data
+#                   file.name = "master", # name of the sound file
+#                   gap.duration = 0.2, dest.path = "/home/m/Dropbox/Projects/barulho_paper/output/presentation/images/") # duration of silence in between sounds
+
+master <- readWave("/home/m/Dropbox/Projects/barulho_paper/output/presentation/images/master.wav")
+# plot spectro
+
+seewave::spectro(master, scale = FALSE, palette = viridis, grid = FALSE, flim = c(0,
+    4), tlim = c(0.6, 5.4), collevels = seq(-20, 0, 1), osc = TRUE, colwave = "#31688EFF", heights = c(2, 1), wl = 100, ovlp = 70, colbg="#35B77933")
+
+```
+
+![](images/synthetic_master.wav.jpeg){.absolute top=400 left=0 width="1000"}
+ 
+## {background-color="white" background-image="images/background.png"}
+
+### Experiment de reproducción ('playback')
+
+
+- Bosque de Tlalpan, Ciudad de México
+
+![](images/tlalpan3.jpg){.absolute top=160 left=0 width=1500}
+
+## {background-color="white" background-image="images/background.png"}
+
+### Experiment de reproducción ('playback')
+
+
+- Bosque de Tlalpan, Ciudad de México
+
+![](images/tlalpan2.jpg){.absolute top=160 left=0 width=1500}
+
+![](images/playback_exp.png){.absolute top=320 left=170 width=600}
+
+
+
+## {background-color="white" background-image="images/background.png"}
+
+### Alinear automático sonidos regrabados
+
+```r
+markers_position <- find_markers(X = master_annotations, 
+                                 test.files = "path_to_files")
+                                 
+markers <- align_test_files(X = master_annotations,
+                        Y = markers_position)                    
+```
+
+![](images/still_image_aigning.png){.absolute top=278 left=100 width="900"}
+ 
+## {background-color="white" background-image="images/background.png" visibility="uncounted"}
+
+### Alinear automático sonidos regrabados
+
+```r
+markers_position <- find_markers(X = master_annotations, 
+                                 test.files = "path_to_files")
+
+markers <- align_test_files(X = master_annotations,
+                        Y = markers_position)                    
+```
+
+![](images/aligning2.mp4){.absolute top=290 left=100 width="900"}
+ 
+
+## {background-color="white" background-image="images/background.png"}
+
+![](images/spectrograms_by_habitat_and_distance_trnsc2_v2.png){.absolute top=-20 left=0 width=3900}
+
+## Visualizar degradación {background-color="white" background-image="images/background.png"}
+
+```r
+plot_degradation(test_sounds_est)
+```
+
+![](images/plot_degradation_8kHz.jpeg){.absolute top="150" left="0" width=1100}
+
+## {background-color="white" background-image="images/background.png"}
+
+![](images/plot_degradation_p1.png){.absolute top="0" left="0" width=1100}
+
+## Visualizar degradación {background-color="white" background-image="images/background.png"}
+
+```r
+plot_blur_ratio(test_sounds_est)
+```
+
+![](images/blur_ratio_dur:0.1;freq:0.5;fm;am_2-trnsc1_1m_open.wav-382-trnsc2_30m_closed.wav-382.jpeg){.absolute top="150" left="100" width="700"}
+
+## Cuantificar degradación {background-color="white" background-image="images/background.png"}
+
+8 medidas de degradación:
+
+    - Atenuación
+    - Reverberación
+    - Distorsión
+
+```r
+
+degrad <- blur_ratio(test_sounds_est) |>
+    envelope_correlation(test_sounds_est) |>
+    excess_attenuation(test_sounds_est) |>
+    signal_to_noise_ratio(test_sounds_est, mar = 0.01) |>
+    tail_to_signal_ratio(test_sounds_est, mar = 0.01) |>
+    cross_correlation(test_sounds_est) |>
+    spectrum_blur_ratio(test_sounds_est) |>
+    spectrum_correlation(test_sounds_est)
+
+```
+
+## {background-color="white" background-image="images/background.png" visibility="uncounted"}
+
+### Degradación, hábitat y estructura acústica 
+
+_medida de degradación ~ habitat + frec + duración + am + fm_
+
+![](images/pvalues_grid.jpeg){.absolute top=150 left=0 width="900"}
+
+::: footer
+:::
+
+## {background-color="white" background-image="images/background.png"}
+
+### Degradación, hábitat y estructura acústica 
+
+_medida de degradación ~ habitat + frec + duración + am + fm_
+
+![](images/pvalues_grid.jpeg){.absolute top=150 left=0 width="900"}
+
+![](images/blue_arrow.png){.absolute top=130 left=644 width=230}
+![](images/orange_arrow.png){.absolute top=130 left=-60 width=220}
+
+![](images/blue_line.png){.absolute top=120 left=430 width=520}
+![](images/orange_line.png){.absolute top=120 left=50 width=260}
+
+::: footer
+:::
+
+## baRulho vs Sigpro {background-color="white" background-image="images/background.png"}
+
+- __*Sigpro*__: 861 min 
+- __*baRulho*__: 7 min (~120x faster)
+
+```{r compare with plots, eval = TRUE, echo = FALSE, fig.width=12, out.width="120%"}
+
+comb_data_cols <- read.csv("~/Dropbox/Projects/barulho_paper/data/processed/combined_sigpro_barulho.csv")
+
+comb_data_cols <- comb_data_cols[comb_data_cols$format == "Clips", ]
+
+# stck_dat <- stack(comb_data_cols[, c("TSR", "SNR", "blur_ratio", "excess_attenuation")])
+
+# 
+# 
+# dfs <- lapply(c("TSR", "SNR", "blur_ratio", "excess_attenuation"), function(i){
+# 
+#     # clips
+#     x <- comb_data_cols[comb_data_cols$format ==
+#     "Clips", i]
+#     y <- comb_data_cols[comb_data_cols$format == "Clips",
+#     paste(i, "bRlho", sep = ".")]
+#   
+#     
+#     return(data.frame(measure = i, sigpro = x, barulho = y))
+#       
+#     # cr.clps <- cor.test(x, y, use = "pairwise.complete.obs")
+# })
+# 
+# comp_dat <- do.call(rbind, dfs)
+# 
+# comp_dat$measure <- as.factor(comp_dat$measure)
+# 
+# levels(comp_dat$measure) <- c("Blur ratio", "Excess attenuation", "Signal-to-noise ratio", "Tail-to-signal ratio")
+
+# ggplot(comp_dat, aes(x = sigpro, y = barulho)) + 
+#     geom_point(color = viridis(10, alpha = 0.7)[7])  + 
+#     labs(x = paste(i, "SIGPRO"), y = paste(i, "baRulho")) + facet_wrap(~format, scales = "free_x") + geom_abline(slope = 1, intercept = 0,lty = 3) + theme_classic(base_size = 24) + 
+#     facet_wrap(~ measure, scales = "free") +
+#     labs(x = "SIGPRO", y = "baRulho") +
+#     coord_equal()
+
+raw_names <- c("TSR", "SNR", "blur_ratio", "excess_attenuation")
+fixed_names <-  c("Tail-to-signal ratio", "Signal-to-noise ratio", "Blur ratio", "Excess attenuation")
+
+ggs <- lapply(seq_along(raw_names), function(z){
+
+    i <- raw_names[z]
+    
+    # clips
+    x <- comb_data_cols[comb_data_cols$format ==
+    "Clips", i]
+    y <- comb_data_cols[comb_data_cols$format == "Clips",
+    paste(i, "bRlho", sep = ".")]
+  
+    
+dat <- data.frame(measure = fixed_names[z], sigpro = x, barulho = y)
+    ranges <- range(c(x, y), na.rm = TRUE)  
+    
+    
+    r <- round(cor(x, y, use = "pairwise.complete.obs"), 2)
+    
+    gg <- 
+        ggplot(dat, aes(x = sigpro, y = barulho)) + 
+    geom_point(color = viridis(10, alpha = 0.7)[7], size = 4)  + 
+    labs(x = paste(i, "Sigpro"), y = paste(i, "baRulho")) + facet_wrap(~format, scales = "free_x") + geom_abline(slope = 1, intercept = 0,lty = 3) + theme_classic(base_size = 24) + 
+    facet_wrap(~ measure) +
+    labs(x = "", y = "") +
+   xlim(ranges) + 
+        ylim(ranges) +
+         theme(axis.title.x=element_blank(),
+               axis.title.y=element_blank()) +
+        geom_text(x = (diff(ranges) * 0.9) + min(ranges), y =  (diff(ranges) * 0.16) + min(ranges), label = paste("r =", r), size = 8, col = "orange")
+
+    return(gg)
+    # cr.clps <- cor.test(x, y, use = "pairwise.complete.obs")
+})
+
+pg <- plot_grid(plotlist = ggs, nrow = 2) 
+
+y.grob <- textGrob("baRulho", x = unit(0.7, "npc"),gp = gpar(fontsize = 24), rot = 90)
+
+x.grob <- textGrob("Sigpro", y = unit(0.7, "npc"), gp = gpar(fontsize = 24))
+
+#add to plot
+g <- grid.arrange(arrangeGrob(pg, left = y.grob, bottom = x.grob))
+
+ggsave(filename = "./output/barulho_vs_sigpro.jpeg", plot = g, dpi = 300)
+
+```
+
+
+## `Takeaways` {background="#31688EFF" visibility="hidden"}
+
+- `baRulho` simplifies several steps of sound degradation experiments
+- Adequately quantifies degradation
+    - habitat and frequency drives most degradation
+    - Unexpected effects of other acoustic features (frequency and amplitude modulation)
+- Faster implementation than previous tools
+- New measures and visualizations
+
+
+
+## R package `baRulho` {background="#31688EFF"}
+
+![](images/baRulho_sticker.png){.absolute top=-30 left=600 width=120}
+
+`Conclusiones`
+
+- Cuantificación precisa ![](images/frog_degrad_gray.png){.absolute top=130 left=480 width=180} 
+
+<br/>
+
+
+- Mejor desempeño ![](images/clock_gray.png){.absolute top=300 left=380 width=160} 
+
+<br/>
+
+- Expande la caja de herramientas ![](images/toolkit_gray.png){.absolute top=480 left=610 width=140}
+
+
+
+## Agradecimientos {background-color="white" background-image="images/barulho_sticker_no_text.png"}
+
+::: {.column width="80%"}
+
+- Centro de Investigación en Neurociencias, Universidad de Costa Rica
+- Lab Biocomputines, Universidad de Costa Rica
+- Taller de Bioac[ustica en R, Instituto de Biología, Universidad Nacional Autónoma de México (2019)
+- Mariano Araya & Luis Sandoval, PhD
+- Paquetes de R `seewave` y `tuneR`
+ 
+:::
+
+![](images/instituo_biolo_unam.png){.absolute top=300 left=840 width=200} 
+    
+![](images/cin_0.png){.absolute top=470 left=750 width=180} 
+
+![](images/ucr.png){.absolute top=490 left=970 width=150} 
+
+## {background-color="white" background-image="images/barulho_sticker_no_text.png"}
+
+
+<center><font size="20"><b><a href="https://marce10.github.io/baRulho/">Paquete de R baRulho</a></b></font></center>
+
+
+![](images/QR_code_baRulho R package.png){.absolute top=120 left=280 width="520"}
+
+
+```{r spectrogram, eval = FALSE, echo = FALSE}
+
+realigned_tests <- readRDS("./data/processed/realigned_tests.RDS")
+
+graphics.off()
+
+left_distance_labels <- 0.92
+
+lf <- rep(c(0.09, 0.5), each  = 4)
+rg <- rep(c(0.5, left_distance_labels), each  = 4)
+horiz <- seq(left_distance_labels, 0.075, length.out = 5)
+btm <- rep(horiz[-1], 2)
+tp <- rep(horiz[-length(horiz)], 2)
+
+m <- cbind(lf, rg, btm, tp)
+
+lf <- c(rep(max(rg), each  = 4), 0.09, 0.5, 0, 0)
+rg <- c(rep(1, each  = 4), 0.5, left_distance_labels, 0.05, 1)
+horiz <- seq(left_distance_labels, 0.075, length.out = 5)
+btm <- c(horiz[-1], left_distance_labels, left_distance_labels, 0.075, 0)
+tp <- c(horiz[-length(horiz)], 1, 1, left_distance_labels, 0.075)
+
+m2 <- cbind(lf, rg, btm, tp)
+m <- rbind(m, m2)
+
+cex <- 2.2
+for (e in paste0("trnsc", 2)){
+
+# png(filename = paste0("./output/spectrograms_by_habitat_and_distance_", e, ".png"), res = 300, width = 4000, height = 3000)
+    
+png(filename = paste0("./output/presentation/images/spectrograms_by_habitat_and_distance_", e, ".png"), res = 300, width = 4500, height = 3500)
+
+ss <- split.screen(figs = m)
+
+# # testing layout screens
+# for(i in 1:nrow(m))
+# {screen(i)
+#   par( mar = rep(0, 4))
+#   plot(0.5, xlim = c(0,1), ylim = c(0,1), type = "n", axes = FALSE, xlab = "", ylab = "", xaxt = "n", yaxt = "n")
+#   box()
+#   text(x = 0.5, y = 0.5, labels = i)
+# }
+# close.screen(all.screens = T)
+
+
+ovlp <- 95
+colls <- seq(-110, 0, 5)
+wl <- 512
+
+# lab_bg <- viridis(10, alpha = 0.25)[8]
+
+lab_bg <- viridis::mako(4, alpha = 0.3)[1]
+files <-
+    c(
+        "_10m_open.wav",
+        "_30m_open.wav",
+        "_65m_open.wav",
+        "_100m_open.wav",
+        "_10m_closed.wav",
+        "_30m_closed.wav",
+        "_65m_closed.wav",
+        "_100m_closed.wav"
+    )
+
+files <- paste0(e, files)
+
+titles <- gsub(paste0(e,"_|_|.wav"), " ", files)
+
+
+# frequency label
+screen(15)
+par(mar = c(0, 0, 0, 0), new = TRUE)
+plot(
+    1,
+    frame.plot = FALSE,
+    type = "n",
+    yaxt = "n",
+    xaxt = "n"
+)
+text(
+    x = 0.8,
+    y = 1,
+    "Frequency (kHz)",
+    srt = 90,
+    cex = cex
+)
+
+# time label
+screen(16)
+par(mar = c(0, 0, 0, 0), new = TRUE)
+plot(
+    1,
+    frame.plot = FALSE,
+    type = "n",
+    yaxt = "n",
+    xaxt = "n"
+)
+text(x = 1,
+     y = 0.75,
+     "Time (s)",
+     cex = cex)
+
+for (i in seq_along(files)) {
+    # print(i)
+    screen(i)
+    par(mar = c(0, 0, 0, 0))
+    
+    warbleR:::spectro_wrblr_int2(
+        wave = readWave(
+            file.path(path_to_files, files[i]),
+            from = min(realigned_tests$start[realigned_tests$sound.files == files[i]]) - 1.2,
+            to = min(realigned_tests$start[realigned_tests$sound.files == files[i]]) + 4,
+            units = "seconds"
+        ),
+        collevels = colls,
+        ovlp = ovlp,
+        wl = wl,
+        flim = c(0.1, 10.6),
+        palette = viridis,
+        axisX = FALSE,
+        axisY = FALSE,
+        grid = FALSE
+    )
+    
+    # add frequency axis
+    if (grepl("open", realigned_tests$sound.files[realigned_tests$sound.files == files[i]][1]))
+        axis(2, at = c(seq(2, 10, 2)), cex = cex, cex.axis = cex - 0.4)
+    
+    # add time axis
+    if (grepl("100m", realigned_tests$sound.files[realigned_tests$sound.files == files[i]])[1])
+        axis(1, cex = cex, cex.axis = cex - 0.4)
+    
+    
+    lns <-
+        c(
+            realigned_tests$start[realigned_tests$sound.files == files[i]] - min(realigned_tests$start[realigned_tests$sound.files == files[i]]),
+            realigned_tests$end[realigned_tests$sound.files == files[i]] - min(realigned_tests$start[realigned_tests$sound.files == files[i]])
+        ) + 1.2
+    
+    lns <- c(lns, min(lns) - 0.1, min(lns) - 1.05)
+    
+    abline(
+        v = lns,
+        col = "white",
+        lty = 3,
+        lwd = 1.2
+    )
+    abline(
+        v = lns,
+        col = "white",
+        lty = 3,
+        lwd = 1.2
+    )
+}
+
+vlabs <- paste(c(10, 30, 65, 100), "m")
+
+par(mar = c(0, 0, 0, 0),
+    bg = lab_bg,
+    new = TRUE)
+# add vertical labels
+for (i in 9:12) {
+    screen(i)
+    # par(mar = c(0, 0, 0, 0))
+    par(mar = c(0, 0, 0, 0),
+        bg = lab_bg,
+        new = TRUE)
+    plot(
+        1,
+        frame.plot = FALSE,
+        type = "n",
+        yaxt = "n",
+        xaxt = "n"
+    )
+    text(
+        x = 1,
+        y = 1,
+        vlabs[i - 8],
+        srt = 2,
+        cex = cex,
+        col = "white",
+        font = 2
+    )
+    box()
+}
+
+hlabs <- c("Open habitat", "Closed habitat")
+for (i in 13:14) {
+    screen(i)
+    par(mar = c(0, 0, 0, 0),
+        bg = lab_bg,
+        new = TRUE)
+    plot(
+        1,
+        frame.plot = FALSE,
+        type = "n",
+        yaxt = "n",
+        xaxt = "n"
+    )
+    text(
+        x = 1,
+        y = 1,
+        hlabs[i - 12],
+        font = 2,
+        cex = cex,
+        col = "white"
+    )
+    box()
+}
+
+dev.off()
+}
+
+```
+
+```{r plot degradation, eval = FALSE, echo=FALSE}
+realigned_tests <- readRDS("./data/processed/realigned_tests.RDS")
+
+# get distance
+realigned_tests$distance <- sapply(strsplit(realigned_tests$sound.files, "_"), "[[", 2)
+
+# make it a numeric column
+realigned_tests$distance <- as.numeric(gsub("m", "", realigned_tests$distance))
+
+X <- realigned_tests
+
+X$transect <- gsub("trnsc", "", sapply(strsplit(X$sound.files, "_"), "[[", 1))
+X$transect <- ifelse(grepl("open", X$sound.files), paste(X$transect, "open", sep = " "), paste(X$transect, "closed", sep = " "))
+
+# X$sound.id <- gsub("_1", "", X$sound.id)
+# X$sound.id <- gsub("fm", "fmW\n", X$sound.id, fixed = TRUE)
+
+# X  <- X[X$transect %in% c("1 open", "1 closed", "2 open", "2 closed"), ]
+X <- X[X$sound.id == "dur:0.2;freq:8.5;fm;am_1" & X$transect %in% c("1 open", "1 closed") | X$sound.id == "dur:0.2;freq:3;fm;am_2" & X$transect %in% c("2 open", "2 closed") |  X$sound.id == "dur:0.2;freq:3;fm;am_2" & X$transect %in% c("1 open") & X$distance == 1, ]
+
+X <- X[order(X$sound.id, X$transect, decreasing = TRUE), ]
+
+X$sound.id[X$sound.id == "dur:0.2;freq:8.5;fm;am_1"] <- "8.5 kHz"
+X$sound.id[X$sound.id == "dur:0.2;freq:3;fm;am_2"] <- "3 kHz"
+
+X$transect <- ifelse(grepl("open", X$transect), "Open", "Closed")
+
+
+options(sound.files.path = path_to_files, dest.path = tempdir(), mc.cores = 20, pb = FALSE)
+
+X2 <- set_reference_sounds(X)
+
+# plot_degradation(X2, nrow = 4)
+plot_degradation(X = X2, nrow = 4, dest.path = "./output/", ovlp = 95)
+```
+
+```{r animation alignment, eval = FALSE, echo = FALSE}
+
+# install.packages("extrafont")
+library(extrafont)
+# font_import()
+# loadfonts(device = "postscript")
+
+library("animation")
+
+steps <- 40
+
+sq.add <- seq(0.5, 0, length.out = steps / 2)
+
+sq.add <- c(sq.add, rep(0, length(sq.add)))
+
+signals <- c("start  ", "A", "B", "C", "  end")
+
+sleep <- FALSE
+time <- 0.05
+
+p1 <- seq(0.1, 0.6, along.with = signals)
+
+cex <- 7
+rect.mar <- 0.2
+
+cols <- viridis::viridis(4, alpha = 0.8)[c(3:4, 2)]
+
+cols <- c("#31688E99", "#6DCD59CC" , "black", "white")
+
+# sls <- locator(10)$x
+
+sls <- c(0.01, 0.16, 0.19184447, 0.25914257, 0.31657029, 0.37938185, 0.44039880, 0.51038883, 0.56, 0.68)
+
+# par(family = "arial")
+# par(family = "ti")
+
+saveVideo(
+  if (TRUE) {
+    for (i in c(1:steps)) {
+        
+        png(filename = "./output/presentation/images/still_image_aigning.png", width = 7000, height = 3000, res = 300)
+        par(mar =  c(18, 4, 1, 4) + 0.1)
+      plot(0, type = "n", axes = FALSE, ann = FALSE, ylim = c(0.05, 0.95), xlim = c(-0.1, 1.1))
+
+      legend(x = 0.8, y = 0.9, fill = cols[1:2], legend = c("Master", "Re-recorded"), cex = 4, bty = "n")
+
+      
+      # axis(1, labels = FALSE, lwd = 2)
+      mtext(side = 1, line = 2, "Time", cex = 3)
+
+      rect(min(p1) - rect.mar, 0.52, max(p1) + rect.mar, 0.9, col = cols[1])
+
+
+      for (e in 1:length(sls)) {
+        lines(y = c(0.52, 0.9), x = rep(sls[e], 2), lty = 2, lwd = 3, col = cols[3])
+      }
+
+      text(x = p1, y = 0.7, labels = signals, cex = cex, col = cols[3])
+
+      p2 <- p1 + sq.add[i]
+
+      rect(min(p2) - rect.mar, 0.1, max(p2) + rect.mar, 0.48, col = cols[2])
+
+      for (e in 1:2) {
+        lines(y = c(0.1, 0.48), x = rep(sls[e], 2) + sq.add[i], lty = 2, lwd = 3, col = cols[4])
+      }
+
+      text(x = p2, y = 0.3, labels = signals, cex = cex, col = cols[4])
+
+      ## add lines after alignment
+      if (i > steps / 2 & i < steps * 6 / 8) {
+        for (e in 1:2) {
+          lines(y = c(0.52, 0.9), x = rep(sls[e], 2), lty = 2, lwd = 3, col = cols[3])
+          lines(y = c(0.1, 0.48), x = rep(sls[e], 2), lty = 2, lwd = 3, col = cols[3])
+        }
+      }
+      if (i > steps * 6 / 8) {
+        for (e in 1:length(sls)) {
+          lines(y = c(0.52, 0.9), x = rep(sls[e], 2), lty = 2, lwd = 3, col = cols[3])
+        }
+      }
+
+      if (i > steps * 6 / 8) {
+        for (e in 1:length(sls)) {
+          lines(y = c(0.1, 0.48), x = rep(sls[e], 2), lty = 2, lwd = 3, col = cols[3])
+        }
+      }
+
+      if (sleep) Sys.sleep(time)
+    }
+  },
+  movie.name = "/home/m/Dropbox/Projects/barulho_paper/output/presentation/images/aligning.mp4", interval = 0.1, ani.width = 7000, ani.height = 3000, ani.res = 300
+)
+
+```
+

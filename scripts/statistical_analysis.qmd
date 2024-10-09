@@ -1,7 +1,7 @@
 ---
 title: Degradation statistics
 subtitle: baRulho:quantifying habitat-induced degradation of (animal) acoustic signals
-author: Marcelo Araya-Salas
+# author: Marcelo Araya-Salas
 date: "`r Sys.Date()`"
 toc: true
 toc-depth: 2
@@ -23,21 +23,9 @@ editor_options:
 <!-- this code add line numbers to code blocks -->
 <!-- only works when code folding is not used in yaml (code_folding: show) -->
 
-```{=html}
-<style>
-body
-  { counter-reset: source-line 0; }
-pre.numberSource code
-  { counter-reset: none; }
-</style>
-```
-
 ```{r set root directory, echo = FALSE}
 
-# set working directory as project directory or one directory above,
-rootdir <- try(rprojroot::find_rstudio_root_file(), silent = TRUE)
-if (is(rootdir, "try-error")) rootdir <-  ".."
-knitr::opts_knit$set(root.dir = rootdir)
+knitr::opts_knit$set(root.dir = "..")
 
 ```
 
@@ -57,7 +45,6 @@ if (file.exists("./.git/config")){
 
 # options to customize chunk outputs
 knitr::opts_chunk$set(
-  class.source = "numberLines lineAnchors", # for code line numbers
   tidy.opts = list(width.cutoff = 65), 
   tidy = TRUE,
   message = FALSE,
@@ -89,36 +76,6 @@ source("~/Dropbox/R_package_testing/brmsish/R/extended_summary.R")
 source("~/Dropbox/R_package_testing/brmsish/R/helpers.R")
 ```
 
----
-title: <center><font size="7"><b>Statistical analysis</b></font></center>
-subtitle: <center><font size="4"><b>baRulho:quantifying habitat-induced degradation of (animal) acoustic signals</b> <br>University of Costa Rica</font></center>
-author: <center><font size="3"><a href="https://marceloarayasalas.weebly.com/">Marcelo Araya-Salas</a></font></center>
-date: <center>"`r Sys.Date()`"</center>
-output:
-  html_document:
-    code_folding: hide
-    css: extra.css
-    df_print: tibble
-    highlight: pygments  
-    toc: yes
-    toc_depth: 3
-    toc_float:
-      collapsed: yes
-      smooth_scroll: yes
-fontsize: 12pt 
-editor_options: 
-  chunk_output_type: console
----
-
-<!-- this code add line numbers to code blocks -->
-<!-- only works when code folding is not used in yaml (code_folding: show) -->
-
-<style>
-body
-  { counter-reset: source-line 0; }
-pre.numberSource code
-  { counter-reset: none; }
-</style>
 
 ```{r load packages and setup style, echo = FALSE, message = FALSE, warning=FALSE}
 
@@ -149,39 +106,13 @@ out <- lapply(pkgs, function(y) {
   if (!a) remove.packages(pkg)
   })
 
-
-# set working directory as project directory or one directory above,
-rootdir <- try(rprojroot::find_rstudio_root_file(), silent = TRUE)
-if (is(rootdir, "try-error")) rootdir <-  ".."
-opts_knit$set(root.dir = rootdir)
-
 # options to customize chunk outputs
 knitr::opts_chunk$set(
-  class.source = "numberLines lineAnchors", # for code line numbers
   tidy.opts = list(width.cutoff = 65), 
   tidy = TRUE,
   message = FALSE
  )
 
-# this is a customized printing style data frames 
-# screws up tibble function
-tibble <- function(x, ...) { 
-  x <- kbl(x, digits=4, align= 'c', row.names = FALSE) 
-   x <- kable_styling(x, position ="center", full_width = FALSE,  bootstrap_options = c("striped", "hover", "condensed", "responsive")) 
-   asis_output(x)
-}
-
-registerS3method("knit_print", "data.frame", tibble)
-
-# to add copy button to code blocks
-htmltools::tagList(
-  xaringanExtra::use_clipboard(
-    button_text = "<i class=\"fa fa-clipboard\"></i>",
-    success_text = "<i class=\"fa fa-check\" style=\"color: #90BE6D\"></i>",
-    error_text = "<i class=\"fa fa-times-circle\" style=\"color: #F94144\"></i>"
-  ),
-  rmarkdown::html_dependency_font_awesome()
-)
 
 theme_set(theme_classic(base_size = 17))
 ```
@@ -190,7 +121,7 @@ theme_set(theme_classic(base_size = 17))
 
 degrad_df <- read.csv("./data/processed/barulho_degradation_metrics.csv", stringsAsFactors = FALSE)
 
-degrad_params <- c(bl.rt = "blur.ratio", sp.bl.rt = "spectral.blur.ratio", env.cr = "envelope.correlation", EA ="excess.attenuation", SPL = "SPL", SNR = "signal.to.noise.ratio", SPCC = "cross.correlation",  TSR = "tail.to.signal.ratio", TNR = "tail.to.noise.ratio", sp.cr = "spectrum.correlation", pc1 = "pc1")
+degrad_params <- c(bl.rt = "blur.ratio", sp.bl.rt = "spetrum.blur.ratio", env.cr = "envelope.correlation", EA ="excess.attenuation", SPL = "SPL", SNR = "signal.to.noise.ratio", SPCC = "cross.correlation",  TSR = "tail.to.signal.ratio", TNR = "tail.to.noise.ratio", sp.cr = "spectrum.correlation", pc1 = "pc1")
 
 master_metadata <- read.csv("./data/raw/consolidated.master.sf_selection_table.csv")
 
@@ -242,15 +173,15 @@ degrad_df$frequency <- degrad_df$sim.frequency
 degrad_df$duration <- degrad_df$Duration
 degrad_df$amplitude.modulation <- degrad_df$Amp_modulation 
 degrad_df$frequency.modulation <- degrad_df$Freq_modulation 
-degrad_df$location <- degrad_df$Transect
-degrad_df$spectrum.blur.ratio <- degrad_df$spectral.blur.ratio
+degrad_df$location <- degrad_df$Transecto
+# degrad_df$spectrum.blur.ratio <- degrad_df$spetral.blur.ratio
 degrad_df$habitat.structure <- ifelse(degrad_df$Vegetacion == "abierta", "open", "closed")
 
-degrad_df$sim.frequency <- degrad_df$signal.to.noise.ratio.t2 <- degrad_df$SPL <- degrad_df$template <- degrad_df$data.set <- degrad_df$Temperatura <- degrad_df$Harmonicity <- degrad_df$freq <- degrad_df$Humedad <- degrad_df$Vegetacion <- degrad_df$Duration <- degrad_df$orig.sound.file <- degrad_df$Freq_modulation <- degrad_df$Amp_modulation <- degrad_df$spectral.blur.ratio <- degrad_df$Transecto <- NULL
+degrad_df$sim.frequency <- degrad_df$signal.to.noise.ratio.t2 <- degrad_df$SPL <- degrad_df$template <- degrad_df$data.set <- degrad_df$Temperatura <- degrad_df$Harmonicity <- degrad_df$freq <- degrad_df$Humedad <- degrad_df$Vegetacion <- degrad_df$Duration <- degrad_df$orig.sound.file <- degrad_df$Freq_modulation <- degrad_df$Amp_modulation <- degrad_df$spetral.blur.ratio <- degrad_df$Transecto <- NULL
  
 names(degrad_df)
 
-degrad_df <- degrad_df[, c("sound.files", "selec", "start", "end", "bottom.freq", "top.freq", "sound.id",  "habitat.structure", "distance", "reference", "frequency", "duration", "treatment.replicates", "location", "frequency.modulation", "amplitude.modulation","blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "spectrum.blur.ratio", "spectrum.correlation", "tail.to.noise.ratio", "tail.to.signal.ratio")]
+degrad_df <- degrad_df[, c("sound.files", "selec", "start", "end", "bottom.freq", "top.freq", "sound.id",  "habitat.structure", "distance", "reference", "frequency", "duration", "treatment.replicates", "location", "frequency.modulation", "amplitude.modulation","blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "spectrum.blur.ratio", "spectrum.correlation", "tail.to.signal.ratio")]
 
 write.csv(degrad_df, "./data/processed/tlalpan_degradation_metrics_v01.csv", row.names = FALSE)
 ```
@@ -259,7 +190,7 @@ write.csv(degrad_df, "./data/processed/tlalpan_degradation_metrics_v01.csv", row
 
 degrad_df <- read.csv("./data/processed/tlalpan_degradation_metrics_v01.csv")
 
-degrad_params <- c("blur.ratio", "spectrum.blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "tail.to.signal.ratio", "tail.to.noise.ratio", "spectrum.correlation")
+degrad_params <- c("blur.ratio", "spectrum.blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "tail.to.signal.ratio", "spectrum.correlation")
 
 comp.cases <- complete.cases(degrad_df[,names(degrad_df) %in% degrad_params])
 
@@ -411,14 +342,14 @@ extended_summary(read.file = "./data/processed/regression_model_excess_attenuati
         "durationlong"), gsub.replacement = c("", "habitat structure",
         "amplitude modulation", "frequency modulation", "duration"), effects = effects)
 
-extended_summary(read.file = "./data/processed/regression_model_signal-to-noise_ratio.RDS",
-    n.posterior = 1000, fill = "orange3", trace.palette = my.viridis,
-    remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_",
-        "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm",
-        "durationlong"), gsub.replacement = c("", "habitat structure",
-        "amplitude modulation", "frequency modulation", "duration"), effects = effects)
+# extended_summary(read.file = "./data/processed/regression_model_signal_to_noise_ratio.RDS",
+#     n.posterior = 1000, fill = "orange3", trace.palette = my.viridis,
+#     remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_",
+#         "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm",
+#         "durationlong"), gsub.replacement = c("", "habitat structure",
+#         "amplitude modulation", "frequency modulation", "duration"), effects = effects)
 
-extended_summary(read.file = "./data/processed/regression_model_tail-to-signal_ratio.RDS",
+extended_summary(read.file = "./data/processed/regression_model_tail_to_signal_ratio.RDS",
     n.posterior = 1000, fill = "orange3", trace.palette = my.viridis,
     remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_",
         "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm",

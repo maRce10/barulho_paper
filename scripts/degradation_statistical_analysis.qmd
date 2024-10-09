@@ -20,24 +20,10 @@ editor_options:
 ---
 
 
-<!-- this code add line numbers to code blocks -->
-<!-- only works when code folding is not used in yaml (code_folding: show) -->
-
-```{=html}
-<style>
-body
-  { counter-reset: source-line 0; }
-pre.numberSource code
-  { counter-reset: none; }
-</style>
-```
-
 ```{r set root directory, echo = FALSE}
 
-# set working directory as project directory or one directory above,
-rootdir <- try(rprojroot::find_rstudio_root_file(), silent = TRUE)
-if (is(rootdir, "try-error")) rootdir <-  ".."
-knitr::opts_knit$set(root.dir = rootdir)
+# set working directory as one directory above
+knitr::opts_knit$set(root.dir = "..")
 
 ```
 
@@ -54,10 +40,8 @@ if (file.exists("./.git/config")){
 ```
 
 ```{r setup style, echo = FALSE, message = FALSE, warning=FALSE}
-
 # options to customize chunk outputs
 knitr::opts_chunk$set(
-  class.source = "numberLines lineAnchors", # for code line numbers
   tidy.opts = list(width.cutoff = 65), 
   tidy = TRUE,
   message = FALSE,
@@ -81,35 +65,77 @@ knitr::opts_chunk$set(
 # Load packages {.unnumbered .unlisted}
 
 ```{r load packages}
-
-source("https://raw.githubusercontent.com/maRce10/sketchy/main/R/load_packages.R")
-
 # install/ load packages
-load_packages(packages = c("remotes", "kableExtra", "knitr", "formatR", "rprojroot", "maRce10/warbleR", "ggplot2", "tidyr", "viridis", "corrplot", "brms", "ggdist", "cowplot", "cmdstanr", "maRce10/brmsish", "emmeans", "ggsignif"))
+sketchy::load_packages(packages = c("remotes", "kableExtra", "knitr", "formatR", "rprojroot", "maRce10/warbleR", "ggplot2", "tidyr", "viridis", "corrplot", "brms", "ggdist", "cowplot", "cmdstanr", "maRce10/brmsish", "emmeans", "ggsignif", "rstan", "loo"))
+```
 
-my.viridis <- function(...) viridis(alpha = 0.5, begin = 0.3, end = 0.7, ...)
+# Custom functions {.unnumbered .unlisted}
 
-source("~/Dropbox/R_package_testing/brmsish/R/extended_summary.R")
-source("~/Dropbox/R_package_testing/brmsish/R/helpers.R")
-source("~/Dropbox/R_package_testing/brmsish/R/check_rds_fits.R")
+```{r custom functions} 
+
+my.viridis <- function(...) mako(alpha = 0.5, begin = 0.3, end = 0.7, ...)
+
+# to create several posterior predictive check plots out of a brms fit
+custom_ppc1 <- function(fit, group = NULL, ndraws = 30) {
+  
+    ppc_dens <-
+        pp_check(fit,
+                 ndraws = ndraws,
+                 type = 'dens_overlay_grouped',
+                 group = group)  # shows dens_overlay plot by default
+    pp_mean <-
+        pp_check(
+            fit,
+            type = "stat_grouped",
+            stat = "mean",
+            group = group,
+            ndraws = ndraws
+        )
+    pp_scat <-
+        pp_check(fit,
+                 type = "scatter_avg_grouped",
+                 group = group,
+                 ndraws = ndraws)
+    pp_stat2 <- pp_check(fit, type = "stat_2d", ndraws = ndraws)
+    pp_loo <- pp_check(fit, type = "loo_pit_qq", ndraws = ndraws)
+    pp_error <-
+        pp_check(fit,
+                 type = "error_scatter_avg_grouped",
+                 ndraws = ndraws,
+                 group = group)
+    plot_l <-
+        list(ppc_dens, pp_mean, pp_scat, pp_error,  pp_stat2, pp_loo)
+    
+    plot_l[c(1, 3:length(plot_l))] <-
+        lapply(plot_l[c(1, 3:length(plot_l))], function(x)
+            x  + scale_color_viridis_d(
+                begin = 0.1,
+                end = 0.8,
+                alpha = 0.5
+            ) + scale_fill_viridis_d(
+                begin = 0.1,
+                end = 0.8,
+                alpha = 0.5
+            ) + theme_classic())     
+
+    print(plot_grid(plotlist = plot_l, ncol = 2))
+}
+
+custom_ppc <- function(...) suppressMessages(custom_ppc1(...))
+
 
 ```
 
-<!-- this code add line numbers to code blocks -->
-<!-- only works when code folding is not used in yaml (code_folding: show) -->
-
-<style>
-body
-  { counter-reset: source-line 0; }
-pre.numberSource code
-  { counter-reset: none; }
-</style>
-
-```{r read data degradation, eval = TRUE, echo = FALSE, warning=FALSE, message=FALSE, include=FALSE}
+```{r read data degradation}
+#| eval: true
+#| echo: false
+#| warning: false
+#| message: false
+#| include: false 
 
 degrad_df <- read.csv("./data/processed/barulho_degradation_metrics.csv", stringsAsFactors = FALSE)
 
-degrad_params <- c(bl.rt = "blur.ratio", sp.bl.rt = "spectral.blur.ratio", env.cr = "envelope.correlation", EA ="excess.attenuation", SPL = "SPL", SNR = "signal.to.noise.ratio", SPCC = "cross.correlation",  TSR = "tail.to.signal.ratio", TNR = "tail.to.noise.ratio", sp.cr = "spectrum.correlation", pc1 = "pc1")
+degrad_params <- c(bl.rt = "blur.ratio", sp.bl.rt = "spectrum.blur.ratio", env.cr = "envelope.correlation", EA ="excess.attenuation", SPL = "SPL", SNR = "signal.to.noise.ratio", SPCC = "cross.correlation",  TSR = "tail.to.signal.ratio", TNR = "tail.to.noise.ratio", sp.cr = "spectrum.correlation", pc1 = "pc1")
 
 master_metadata <- read.csv("./data/raw/consolidated.master.sf_selection_table.csv")
 
@@ -162,15 +188,14 @@ degrad_df$duration <- degrad_df$Duration
 degrad_df$amplitude.modulation <- degrad_df$Amp_modulation 
 degrad_df$frequency.modulation <- degrad_df$Freq_modulation 
 degrad_df$location <- degrad_df$Transect
-degrad_df$spectrum.blur.ratio <- degrad_df$spectral.blur.ratio
-degrad_df$habitat.structure <- ifelse(degrad_df$Vegetacion == "abierta", "open", "closed")
+degrad_df$habitat_structure <- ifelse(degrad_df$Vegetacion == "abierta", "open", "closed")
 
 degrad_df$sim.frequency <- degrad_df$signal.to.noise.ratio.t2 <- degrad_df$SPL <- degrad_df$template <- degrad_df$data.set <- degrad_df$Temperatura <- degrad_df$Harmonicity <- degrad_df$freq <- degrad_df$Humedad <- degrad_df$Vegetacion <- degrad_df$Duration <- degrad_df$orig.sound.file <- degrad_df$Freq_modulation <- degrad_df$Amp_modulation <- degrad_df$spectral.blur.ratio <- degrad_df$Transecto <- NULL
  
-names(degrad_df)
 
+colmns <- c("sound.files", "selec", "start", "end", "bottom.freq", "top.freq", "sound.id",  "habitat_structure", "distance", "reference", "frequency", "duration", "treatment.replicates", "location", "frequency.modulation", "amplitude.modulation","blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "spectrum.blur.ratio", "spectrum.correlation", "tail.to.signal.ratio")
 
-degrad_df <- degrad_df[, c("sound.files", "selec", "start", "end", "bottom.freq", "top.freq", "sound.id",  "habitat.structure", "distance", "reference", "frequency", "duration", "treatment.replicates", "location", "frequency.modulation", "amplitude.modulation","blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "spectrum.blur.ratio", "spectrum.correlation", "tail.to.noise.ratio", "tail.to.signal.ratio")]
+degrad_df <- degrad_df[, colmns]
 
 write.csv(degrad_df, "./data/processed/tlalpan_degradation_metrics_v01.csv", row.names = FALSE)
 ```
@@ -179,7 +204,9 @@ write.csv(degrad_df, "./data/processed/tlalpan_degradation_metrics_v01.csv", row
 
 degrad_df <- read.csv("./data/processed/tlalpan_degradation_metrics_v01.csv")
 
-degrad_params <- c("blur.ratio", "spectrum.blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "tail.to.signal.ratio", "tail.to.noise.ratio", "spectrum.correlation")
+degrad_df <- degrad_df[grep("marker", degrad_df$sound.id, invert = TRUE), ]
+
+degrad_params <- c("blur.ratio", "spectrum.blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "tail.to.signal.ratio", "spectrum.correlation")
 
 comp.cases <- complete.cases(degrad_df[,names(degrad_df) %in% degrad_params])
 
@@ -191,18 +218,22 @@ degrad_df$pc1[comp.cases] <- pca$x[, 1]
 degrad_df$pc1.1m.rate <- degrad_df$distance
 # plot rotation values by PC
 pca_rot <- as.data.frame(pca$rotation[, 1:4])
+pca_var <- round(summary(pca)$importance[2, ] * 100)
 
 pca_rot_stck <- stack(pca_rot)
 
 pca_rot_stck$variable <- rownames(pca_rot)
+pca_rot_stck$values[pca_rot_stck$ind == "PC1"] <- pca_rot_stck$values[pca_rot_stck$ind == "PC1"]
 pca_rot_stck$Sign <- ifelse(pca_rot_stck$values > 0, "Positive", "Negative")
 pca_rot_stck$rotation <- abs(pca_rot_stck$values)
+pca_rot_stck$ind_var <- paste0(pca_rot_stck$ind, " (", sapply(pca_rot_stck$ind, function(x) pca_var[names(pca_var)== x]), "%)")
+
 
 ggplot(pca_rot_stck, aes(x = variable, y = rotation, fill = Sign)) +
     geom_col() + 
     coord_flip() +
     scale_fill_viridis_d(alpha = 0.7, begin = 0.2, end = 0.8) +
-    facet_wrap(~ ind) +
+    facet_wrap(~ ind_var) +
     theme_classic()
 
 ```
@@ -216,7 +247,7 @@ cormat <- cor(degrad_df[, degrad_params], use = "pairwise.complete.obs")
 
 rownames(cormat) <- colnames(cormat) <- degrad_params
 
-cols_corr <- colorRampPalette(c(viridis(3, direction = 1, begin = 0.2, end = 0.5), "#BEBEBE1A", "white", "#BEBEBE1A", viridis(3, direction = 1, begin = 0.7, end = 0.9)))(30)
+cols_corr <- colorRampPalette(c(mako(3, direction = 1, begin = 0.2, end = 0.5), "#BEBEBE1A", "white", "#BEBEBE1A", mako(3, direction = 1, begin = 0.7, end = 0.9)))(30)
 
 cp <- corrplot.mixed(cormat, tl.cex = 0.7,
                upper.col = cols_corr,
@@ -227,7 +258,20 @@ cp <- corrplot.mixed(cormat, tl.cex = 0.7,
                tl.col = "black")
 
 # sort parameters as in clusters for cross correlation
-degrad_params <- degrad_params[match(rownames(cp$corr), degrad_params)]
+# degrad_params <- degrad_params[match(rownames(cp$corr), degrad_params)]
+# 
+# degrad_df$treatment.replicates <- sapply(strsplit(degrad_df$sound.id, ".wav"), "[[", 1)
+# 
+# degrad_df$frequency <- as.numeric(sapply(strsplit(degrad_df$sound.id, "_"), "[[", 1))
+# 
+# degrad_df$frequency.modulation <- sapply(strsplit(degrad_df$sound.id, "_"), "[[", 2)
+# 
+# degrad_df$amplitude.modulation <- sapply(strsplit(degrad_df$sound.id, "_"), "[[", 3)
+# 
+degrad_df$habitat.structure <- degrad_df$habitat_structure
+degrad_df$habitat_structure <- NULL
+# 
+# degrad_df$duration <- ifelse(grepl("dur:0.1", degrad_df$sound.id), "short", "long")
 
 ```
 
@@ -262,607 +306,301 @@ kable_styling(df1, bootstrap_options = c("striped",
 iter <- 20000
 chains <- 4
 priors <- c(prior(normal(0, 6), class = "b"), prior(cauchy(0, 4), class = "sd"))
+null_priors <- c(prior(cauchy(0, 4), class = "sd"))
 
 # set frequency to mean-centered and divide by twice the standard deviation
 degrad_df$raw_frequency <- degrad_df$frequency
-degrad_df$frequency <- (degrad_df$frequency -  mean(degrad_df$frequency)) / (2 * sd(degrad_df$frequency)) 
-
+degrad_df$frequency <- (degrad_df$frequency -  mean(degrad_df$frequency)) / (2 * sd(degrad_df$frequency))
 # set base level for factors
 degrad_df$habitat.structure <- factor(degrad_df$habitat.structure, levels = c("open", "closed"))
 degrad_df$frequency.modulation <- factor(degrad_df$frequency.modulation, levels = c("no_fm", "fm"))
 degrad_df$amplitude.modulation <- factor(degrad_df$amplitude.modulation, levels = c("no_am", "am"))
 degrad_df$duration <- factor(degrad_df$duration, levels = c("short", "long"))
 degrad_df$location <- as.factor(degrad_df$location)
-
 degrad_df$distance_f <- paste0(degrad_df$distance, "m")
 degrad_df$distance_f <- factor(degrad_df$distance_f, levels = c("10m", "30m", "65m", "100m"), ordered = TRUE)
-
-
 set.seed(123)
 
-cmdstanr::set_cmdstan_path("~/Documentos/cmdstan/")
-
-# to run within-chain parallelization
 mod_pc1 <-
-    brm(
-        formula = pc1 ~  frequency * habitat.structure + frequency.modulation * habitat.structure + amplitude.modulation * habitat.structure  + duration * habitat.structure + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
-        data = degrad_df,
-        prior = priors,
-        iter = iter,
-        chains = chains,
-        cores = chains,
-        control = list(adapt_delta = 0.99, max_treedepth = 15),
-        file = "./data/processed/regression_model_pc1.RDS",
-        file_refit = "always",
-        backend = "cmdstanr",
-        threads = threading(10)
-    )
+brm(
+formula = pc1 ~ frequency + frequency.modulation + amplitude.modulation + duration + habitat.structure + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
+data = degrad_df,
+prior = priors,
+iter = iter,
+chains = chains,
+cores = chains,
+backend = "cmdstanr",
+control = list(adapt_delta = 0.99, max_treedepth = 15),
+file = "./data/processed/regression_model_pc1.RDS",
+file_refit = "always"
+)
+
+mod_pc1 <- add_criterion(mod_pc1, criterion = c("loo"))
+
+
+null_mod_pc1 <-
+brm(
+formula = pc1 ~ 1 + (1 | location) + (1 | treatment.replicates),
+data = degrad_df,
+prior = null_priors,
+iter = iter,
+chains = chains,
+cores = chains,
+backend = "cmdstanr",
+control = list(adapt_delta = 0.99, max_treedepth = 15),
+file = "./data/processed/null_regression_model_pc1.RDS",
+file_refit = "always"
+)
+
+null_mod_pc1 <- add_criterion(null_mod_pc1, criterion = c("loo"))
 
 mod_blurratio <-
     brm(
-        formula = blur.ratio ~  frequency * habitat.structure + frequency.modulation * habitat.structure + amplitude.modulation * habitat.structure  + duration * habitat.structure + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
+        formula = blur.ratio ~ frequency + frequency.modulation + amplitude.modulation + duration + habitat.structure + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
         data = degrad_df,
         prior = priors,
         iter = iter,
         chains = chains,
         cores = chains,
+        backend = "cmdstanr",
         control = list(adapt_delta = 0.99, max_treedepth = 15),
         file = "./data/processed/regression_model_blur_ratio.RDS",
-        file_refit = "always",
-        backend = "cmdstanr",
-        threads = threading(10)
+        file_refit = "always"
     )
+
+mod_blurratio <- add_criterion(mod_blurratio, criterion = c("loo"))
+
+
+null_mod_blurratio <-
+    brm(
+        formula = blur.ratio ~ 1 + (1 | location) + (1 | treatment.replicates),
+        data = degrad_df,
+        prior = null_priors,
+        iter = iter,
+        chains = chains,
+        cores = chains,
+        backend = "cmdstanr",
+        control = list(adapt_delta = 0.99, max_treedepth = 15),
+        file = "./data/processed/null_regression_model_blur_ratio.RDS",
+        file_refit = "always"
+    )
+
+null_mod_blurratio <- add_criterion(null_mod_blurratio, criterion = c("loo"))
+
 
 mod_ea <-
     brm(
-        formula = excess.attenuation ~  frequency * habitat.structure + frequency.modulation * habitat.structure + amplitude.modulation * habitat.structure  + duration * habitat.structure + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
+        formula = excess.attenuation ~ frequency + frequency.modulation + amplitude.modulation + duration + habitat.structure + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
         data = degrad_df,
         prior = priors,
         iter = iter,
         chains = chains,
+        backend = "cmdstanr",
         cores = chains,
         control = list(adapt_delta = 0.99, max_treedepth = 15),
         file = "./data/processed/regression_model_excess_attenuation.RDS",
-        file_refit = "always",
-        backend = "cmdstanr",
-        threads = threading(10)
+        file_refit = "always"
     )
- 
+
+mod_ea <- add_criterion(mod_ea, criterion = c("loo"))
+
+
+null_mod_ea <-
+    brm(
+        formula = excess.attenuation ~ 1 + (1 | location) + (1 | treatment.replicates),
+        data = degrad_df,
+        prior = null_priors,
+        iter = iter,
+        chains = chains,
+        backend = "cmdstanr",
+        cores = chains,
+        control = list(adapt_delta = 0.99, max_treedepth = 15),
+        file = "./data/processed/null_regression_model_excess_attenuation.RDS",
+        file_refit = "always"
+    )
+
+null_mod_ea <- add_criterion(null_mod_ea, criterion = c("loo"))
+
+
 mod_tsr <-
     brm(
-        formula = tail.to.signal.ratio ~  frequency * habitat.structure + frequency.modulation * habitat.structure + amplitude.modulation * habitat.structure  + duration * habitat.structure + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
+        formula = tail.to.signal.ratio ~ frequency + frequency.modulation + amplitude.modulation + duration + habitat.structure + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
         data = degrad_df,
         prior = priors,
         iter = iter,
         chains = chains,
+        backend = "cmdstanr",
         cores = chains,
         control = list(adapt_delta = 0.99, max_treedepth = 15),
         file = "./data/processed/regression_model_tail_to_signal_ratio.RDS",
-        file_refit = "always",
-        backend = "cmdstanr",
-        threads = threading(10)
+        file_refit = "always"
     )
+
+mod_tsr <- add_criterion(mod_tsr, criterion = c("loo"))
+
+null_mod_tsr <-
+    brm(
+        formula = tail.to.signal.ratio ~ 1 + (1 | location) + (1 | treatment.replicates),
+        data = degrad_df,
+        prior = null_priors,
+        iter = iter,
+        chains = chains,
+        backend = "cmdstanr",
+        cores = chains,
+        control = list(adapt_delta = 0.99, max_treedepth = 15),
+        file = "./data/processed/null_regression_model_tail_to_signal_ratio.RDS",
+        file_refit = "always"
+    )
+
+null_mod_tsr <- add_criterion(null_mod_tsr, criterion = c("loo"))
 
 ```
 
 ## PC1 degradation
-```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
 
-effects <- c("habitat structure", "frequency modulation", "amplitude modulation", "frequency", "duration", "frequency:habitat structure", "habitat structure:duration",  "habitat structure:amplitude modulation", "habitat structure:frequency modulation")
+Model selection:
+```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
+effects <- c("habitat structure", "frequency modulation", "amplitude modulation", "frequency", "duration")
 
 mod <- readRDS("./data/processed/regression_model_pc1.RDS")
 
-extended_summary(mod, n.posterior = 1000, fill =  viridis(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE, trace = TRUE, return = FALSE)
+null_mod <- readRDS("./data/processed/null_regression_model_pc1.RDS")
 
+loo_diff <- loo::loo_compare(mod, null_mod)
 
+loo_diff
 ```
 
-### Contrasts
 
-#### Frequency modulation * habitat structure
 ```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
+extended_summary(mod, n.posterior = 1000, fill =  mako(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE, trace = TRUE, return = FALSE)
 
-cntrs <- as.data.frame(emmeans(mod, pairwise ~ frequency.modulation * habitat.structure)$contrasts)
-names(cntrs)[3:4] <- c("l-95% CI", "u-95% CI")
-
-coef_table <- html_format_coef_table(cntrs, highlight = TRUE, fill = viridis(10)[7])
-
-print(coef_table)
 
 ```
 
-#### Amplitude modulation * habitat structure
-```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
+Posterior predictive checks:
 
-cntrs <- as.data.frame(emmeans(mod, pairwise ~ amplitude.modulation * habitat.structure)$contrasts)
-names(cntrs)[3:4] <- c("l-95% CI", "u-95% CI")
+```{r}
 
-coef_table <- html_format_coef_table(cntrs, highlight = TRUE, fill = viridis(10)[7])
+custom_ppc(fit = mod, group = "habitat.structure")
 
-print(coef_table)
-
-```
-
-### Conditional plots
-```{r, eval = TRUE, warning = FALSE, out.width="100%"}
-
-bs <- 10
-ts <- 4
-ylm <- c(-5, 1.5)
-diff <- 0.1
-sd_freq <- sd(degrad_df$frequency)
-mean_freq <- round(mean(degrad_df$frequency))
-
-freq_labs <- c(paste(round(mean_freq + sd_freq, 1), "(mean+SD)", sep = "\n"), paste(round(mean_freq - sd_freq, 1), "(mean-SD)", sep = "\n"))
-
-ggf <- plot(conditional_effects(mod, "habitat.structure:frequency", int_conditions = list(frequency = c( mean_freq - sd_freq, mean_freq + sd_freq))), plot = FALSE)[[1]] + scale_color_viridis_d(end = 0.8, labels = freq_labs) + 
-    theme_classic(base_size = bs) +
-    labs(color = "Frequency", y = "Degradation (PC1)", x = "Habitat") + 
-    scale_fill_discrete(guide = 'none') +
-    ylim(ylm) 
-
-
-# add contrasts
-for (i in 1:2) ggf <- ggf + geom_signif(y_position = c(1),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-# add larger bracket
- ggf <- ggf + geom_signif(y_position = c(1.5),
-    xmin = c(1), xmax = c(2),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
- 
-ggfm <- plot(conditional_effects(mod, "habitat.structure:frequency.modulation"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Tonal", "FM")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylm) 
-
-
-# add contrasts
-for (i in 1:2) ggfm <- ggfm + geom_signif(y_position = c(0),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggfm <- 
-    ggfm + geom_signif(y_position = c(1),
-    xmin = 1, xmax = 2,
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggam <-plot(conditional_effects(mod, "habitat.structure:amplitude.modulation"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Flat", "AM")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "Degradation (PC1)", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylm)
-
-# add contrasts
-for (i in 1:2) ggam <- ggam + geom_signif(y_position = c(0),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggam <- ggam + geom_signif(y_position = c(1),
-    xmin = 1, xmax = 2,
-    annotation = c("ns"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-
-ggdur <- plot(conditional_effects(mod, "habitat.structure:duration"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Short", "Long")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylm)
-
-# add contrasts
-for (i in 1:2) ggdur <- ggdur + geom_signif(y_position = c(0),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("ns"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggdur <- 
-    ggdur + geom_signif(y_position = c(1),
-    xmin = 1, xmax = 2,
-    annotation = c("ns"), tip_length = 0.02, textsize = 4, size = 0.4, color = "gray40")
-
-
-plot_grid(ggf, ggfm, ggam, ggdur)
 ```
 
 ## Blur ratio
+
+Model selection:
 ```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
 
 mod <- readRDS("./data/processed/regression_model_blur_ratio.RDS")
 
-extended_summary(fit = mod, n.posterior = 1000, fill =  viridis(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE)
+null_mod <- readRDS("./data/processed/null_regression_model_blur_ratio.RDS")
 
+loo_diff <- loo::loo_compare(mod, null_mod)
+
+loo_diff
 ```
 
-### Contrasts
-
-#### Frequency modulation * habitat structure
 ```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
 
-cntrs <- as.data.frame(emmeans(mod, pairwise ~ frequency.modulation * habitat.structure)$contrasts)
-names(cntrs)[3:4] <- c("l-95% CI", "u-95% CI")
-
-coef_table <- html_format_coef_table(cntrs, highlight = TRUE, fill = viridis(10)[7])
-
-print(coef_table)
+extended_summary(fit = mod, n.posterior = 1000, fill =  mako(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE)
 
 ```
 
-#### Amplitude modulation * habitat structure
-```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
+Posterior predictive checks:
 
-cntrs <- as.data.frame(emmeans(mod, pairwise ~ amplitude.modulation * habitat.structure)$contrasts)
-names(cntrs)[3:4] <- c("l-95% CI", "u-95% CI")
+```{r}
 
-coef_table <- html_format_coef_table(cntrs, highlight = TRUE, fill = viridis(10)[7])
+custom_ppc(fit = mod, group = "habitat.structure")
 
-print(coef_table)
-
-```
-
-### Conditional plots
-```{r, eval = TRUE, warning = FALSE, out.width="100%"}
-
-bs <- 10
-ts <- 4
-ylim <- c(-0.1, 0.3)
-
-ggf <- plot(conditional_effects(mod, "habitat.structure:frequency", int_conditions = list(frequency = c( mean_freq - sd_freq, mean_freq + sd_freq))), plot = FALSE)[[1]] + scale_color_viridis_d(end = 0.8, labels = freq_labs) + 
-    theme_classic(base_size = bs) +
-    labs(color = "Frequency", y = "Blur ratio", x = "Habitat") + 
-    scale_fill_discrete(guide = 'none') +
-    ylim(ylim) 
-
-# add contrasts
-for (i in 1:2) ggf <- ggf + geom_signif(y_position = c(0.2),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-# add larger bracket
- ggf <- ggf + geom_signif(y_position = c(0.23),
-    xmin = c(1), xmax = c(2),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-
-
-ggfm <- plot(conditional_effects(mod, "habitat.structure:frequency.modulation"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Tonal", "FM")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylim) 
-
-diff <- 0.1
-
-
-# add contrasts
-for (i in 1:2) ggfm <- ggfm + geom_signif(y_position = c(0.25),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggfm <- 
-    ggfm + geom_signif(y_position = c(0.3),
-    xmin = 1, xmax = 2,
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggam <-plot(conditional_effects(mod, "habitat.structure:amplitude.modulation"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Flat", "AM")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "Blur ratio", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylim)
-
-# add contrasts
-for (i in 1:2) ggam <- ggam + geom_signif(y_position = c(0.2),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggam <- ggam + geom_signif(y_position = c(0.3),
-    xmin = 1, xmax = 2,
-    annotation = c("ns"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-
-ggdur <- plot(conditional_effects(mod, "habitat.structure:duration"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Short", "Long")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylim)
-
-# add contrasts
-for (i in 1:2) ggdur <- ggdur + geom_signif(y_position = c(0.2),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("ns"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggdur <- 
-    ggdur + geom_signif(y_position = c(0.3),
-    xmin = 1, xmax = 2,
-    annotation = c("ns"), tip_length = 0.02, textsize = 4, size = 0.4, color = "gray40")
-
-
-plot_grid(ggf, ggfm, ggam, ggdur)
 ```
 
 ## Excess attenuation
+
+Model selection:
 ```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
 
 mod <- readRDS("./data/processed/regression_model_excess_attenuation.RDS")
 
-extended_summary(fit = mod, n.posterior = 1000, fill =  viridis(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE)
+null_mod <- readRDS("./data/processed/null_regression_model_excess_attenuation.RDS")
 
+loo_diff <- loo::loo_compare(mod, null_mod)
+
+loo_diff
 ```
 
-### Contrasts
-
-#### Frequency modulation * habitat structure
 ```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
 
-cntrs <- as.data.frame(emmeans(mod, pairwise ~ frequency.modulation * habitat.structure)$contrasts)
-names(cntrs)[3:4] <- c("l-95% CI", "u-95% CI")
-
-coef_table <- html_format_coef_table(cntrs, highlight = TRUE, fill = viridis(10)[7])
-
-print(coef_table)
+extended_summary(fit = mod, n.posterior = 1000, fill =  mako(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE)
 
 ```
 
-#### Amplitude modulation * habitat structure
-```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
+Posterior predictive checks:
 
-cntrs <- as.data.frame(emmeans(mod, pairwise ~ amplitude.modulation * habitat.structure)$contrasts)
-names(cntrs)[3:4] <- c("l-95% CI", "u-95% CI")
+```{r}
 
-coef_table <- html_format_coef_table(cntrs, highlight = TRUE, fill = viridis(10)[7])
+custom_ppc(fit = mod, group = "habitat.structure")
 
-print(coef_table)
-
-```
-
-### Conditional plots
-```{r, eval = TRUE, warning = FALSE, out.width="100%"}
-bs <- 10
-ts <- 4
-ylim <- c(20, 90)
- 
-ggf <- plot(conditional_effects(mod, "habitat.structure:frequency", int_conditions = list(frequency = c( mean_freq - sd_freq, mean_freq + sd_freq))), plot = FALSE)[[1]] + scale_color_viridis_d(end = 0.8, labels = freq_labs) + 
-    theme_classic(base_size = bs) +
-    labs(color = "Frequency", y = "Excess attenuation", x = "Habitat") + 
-    scale_fill_discrete(guide = 'none') +
-    ylim(ylim) 
-
-# add contrasts
-for (i in 1:2) ggf <- ggf + geom_signif(y_position = c(85),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-# add larger bracket
- ggf <- ggf + geom_signif(y_position = c(90),
-    xmin = c(1), xmax = c(2),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-
-
-ggfm <- plot(conditional_effects(mod, "habitat.structure:frequency.modulation"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Tonal", "FM")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylim) 
-
-diff <- 0.1
-
-
-# add contrasts
-for (i in 1:2) ggfm <- ggfm + geom_signif(y_position = c(65),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggfm <- 
-    ggfm + geom_signif(y_position = c(72),
-    xmin = 1, xmax = 2,
-    annotation = c("ns"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggam <-plot(conditional_effects(mod, "habitat.structure:amplitude.modulation"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Flat", "AM")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "Excess attenuation", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylim)
-
-# add contrasts
-for (i in 1:2) ggam <- ggam + geom_signif(y_position = c(65),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggam <- ggam + geom_signif(y_position = c(72),
-    xmin = 1, xmax = 2,
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-
-ggdur <- plot(conditional_effects(mod, "habitat.structure:duration"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Short", "Long")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylim)
-
-# add contrasts
-for (i in 1:2) ggdur <- ggdur + geom_signif(y_position = c(65),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("ns"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggdur <- 
-    ggdur + geom_signif(y_position = c(72),
-    xmin = 1, xmax = 2,
-    annotation = c("ns"), tip_length = 0.02, textsize = 4, size = 0.4, color = "gray40")
-
-
-plot_grid(ggf, ggfm, ggam, ggdur)
 ```
 
 ## Tail-to-signal ratio
+
+Model selection:
 ```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
+
 mod <- readRDS("./data/processed/regression_model_tail_to_signal_ratio.RDS")
 
-extended_summary(fit = mod, n.posterior = 1000, fill =  viridis(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE)
+null_mod <- readRDS("./data/processed/null_regression_model_tail_to_signal_ratio.RDS")
+
+loo_diff <- loo::loo_compare(mod, null_mod)
+
+loo_diff
+```
+
+```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
+
+extended_summary(fit = mod, n.posterior = 1000, fill =  mako(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE)
 
 
 # mod <- readRDS("./data/processed/regression_model_int.RDS")
 ```
 
-### Contrasts
+Posterior predictive checks:
 
-#### Frequency modulation * habitat structure
-```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
+```{r}
 
-cntrs <- as.data.frame(emmeans(mod, pairwise ~ frequency.modulation * habitat.structure)$contrasts)
-names(cntrs)[3:4] <- c("l-95% CI", "u-95% CI")
-
-coef_table <- html_format_coef_table(cntrs, highlight = TRUE, fill = viridis(10)[7])
-
-print(coef_table)
-
-```
-
-#### Amplitude modulation * habitat structure
-```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
-
-cntrs <- as.data.frame(emmeans(mod, pairwise ~ amplitude.modulation * habitat.structure)$contrasts)
-names(cntrs)[3:4] <- c("l-95% CI", "u-95% CI")
-
-coef_table <- html_format_coef_table(cntrs, highlight = TRUE, fill = viridis(10)[7])
-
-print(coef_table)
-
-```
-
-### Conditional plots
-```{r, eval = TRUE, warning = FALSE, out.width="100%"}
-bs <- 10
-ts <- 4
-ylim <- c(-27, -5)
-
-ggf <-
-    plot(conditional_effects(mod, "habitat.structure:frequency", int_conditions = list(frequency = c( mean_freq - sd_freq, mean_freq + sd_freq))), plot = FALSE)[[1]] + scale_color_viridis_d(end = 0.8, labels = freq_labs) + 
-    theme_classic(base_size = bs) +
-    labs(color = "Frequency", y = "Tail-to-signal ratio", x = "Habitat") + 
-    scale_fill_discrete(guide = 'none') +
-    ylim(ylim) 
-
-# add contrasts
-for (i in 1:2) ggf <- ggf + geom_signif(y_position = c(-9),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-# add larger bracket
- ggf <- ggf + geom_signif(y_position = c(-8),
-    xmin = c(1), xmax = c(2),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggfm <- plot(conditional_effects(mod, "habitat.structure:frequency.modulation"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Tonal", "FM")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylim) 
-
-diff <- 0.1
-
-
-# add contrasts
-for (i in 1:2) ggfm <- ggfm + geom_signif(y_position = c(-12),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggfm <- 
-    ggfm + geom_signif(y_position = c(-9),
-    xmin = 1, xmax = 2,
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggam <-plot(conditional_effects(mod, "habitat.structure:amplitude.modulation"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Flat", "AM")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "Tail-to-signal ratio", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylim)
-
-# add contrasts
-for (i in 1:2) ggam <- ggam + geom_signif(y_position = c(-12),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggam <- ggam + geom_signif(y_position = c(-9),
-    xmin = 1, xmax = 2,
-    annotation = c("*"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-
-ggdur <- plot(conditional_effects(mod, "habitat.structure:duration"), plot = FALSE)[[1]] +
-  scale_color_viridis_d(end = 0.8, labels = c("Short", "Long")) + 
-    theme_classic(base_size = bs) +
-    labs(x = "Habitat", y = "", color = ""
-         ) + scale_fill_discrete(guide = 'none') + theme(legend.position = c(0.93, 0.5)) + ylim(ylim)
-
-# add contrasts
-for (i in 1:2) ggdur <- ggdur + geom_signif(y_position = c(-12),
-    xmin = c(i - diff), xmax = c(i + diff),
-    annotation = c("ns"), tip_length = 0.02, textsize = ts, size = 0.4, color = "gray40")
-
-ggdur <- 
-    ggdur + geom_signif(y_position = c(-9),
-    xmin = 1, xmax = 2,
-    annotation = c("ns"), tip_length = 0.02, textsize = 4, size = 0.4, color = "gray40")
-
-
-plot_grid(ggf, ggfm, ggam, ggdur)
-
-```
-
-### Contrasts
-
-#### Frequency modulation * habitat structure
-```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
-
-cntrs <- as.data.frame(emmeans(mod, pairwise ~ frequency.modulation * habitat.structure)$contrasts)
-names(cntrs)[3:4] <- c("l-95% CI", "u-95% CI")
-
-coef_table <- html_format_coef_table(cntrs, highlight = TRUE, fill = viridis(10)[7])
-
-print(coef_table)
-
-```
-
-#### Amplitude modulation * habitat structure
-```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
-
-cntrs <- as.data.frame(emmeans(mod, pairwise ~ amplitude.modulation * habitat.structure)$contrasts)
-names(cntrs)[3:4] <- c("l-95% CI", "u-95% CI")
-
-coef_table <- html_format_coef_table(cntrs, highlight = TRUE, fill = viridis(10)[7])
-
-print(coef_table)
+custom_ppc(fit = mod, group = "habitat.structure")
 
 ```
 
 ## Combined results
 
 ```{r, out.width="100%"}
-pc1 <- extended_summary(read.file = "./data/processed/regression_model_pc1.RDS", n.posterior = 1000, fill =  viridis(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE, trace = FALSE, return = TRUE)
 
-gg_pc1 <- pc1$plot + labs(x = "Degradation (PC1)")
+pc1 <- extended_summary(read.file = "./data/processed/regression_model_pc1.RDS", n.posterior = 1000, fill =  mako(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE, trace = FALSE, return = TRUE)
 
-br <- extended_summary(read.file = "./data/processed/regression_model_blur_ratio.RDS", n.posterior = 1000, fill =  viridis(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE, trace = FALSE, return = TRUE)
+# gg_pc1 <- pc1$plot + labs(x = "Degradation (PC1)")
 
-gg_br <- br$plot + labs(x = "Blur ratio", y = "") + theme(axis.text.y = element_blank())
+br <- extended_summary(read.file = "./data/processed/regression_model_blur_ratio.RDS", n.posterior = 1000, fill =  mako(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE, trace = FALSE, return = TRUE)
 
-ea <- extended_summary(read.file = "./data/processed/regression_model_excess_attenuation.RDS", n.posterior = 1000, fill =  viridis(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE, trace = FALSE, return = TRUE)
+# gg_br <- br$plot + labs(x = "Blur ratio", y = "") + theme(axis.text.y = element_blank())
 
-gg_ea <- ea$plot + labs(x = "Excess attenuation", y = "") + theme(axis.text.y = element_blank())
+ea <- extended_summary(read.file = "./data/processed/regression_model_excess_attenuation.RDS", n.posterior = 1000, fill =  mako(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE, trace = FALSE, return = TRUE)
 
-tsr <- extended_summary(read.file = "./data/processed/regression_model_tail_to_signal_ratio.RDS", n.posterior = 1000, fill =  viridis(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE, trace = FALSE, return = TRUE)
+# gg_ea <- ea$plot + labs(x = "Excess attenuation", y = "") + theme(axis.text.y = element_blank())
 
-gg_tsr <- tsr$plot + labs(x = "Tail-to-signal ratio", y = "") + theme(axis.text.y = element_blank())
+tsr <- extended_summary(read.file = "./data/processed/regression_model_tail_to_signal_ratio.RDS", n.posterior = 1000, fill =  mako(10)[7], trace.palette = my.viridis,  remove.intercepts = TRUE, highlight = TRUE, gsub.pattern = c("b_", "habitat.structureclosed", "amplitude.modulationam", "frequency.modulationfm", "durationlong"), gsub.replacement = c("", "habitat structure", "amplitude modulation", "frequency modulation", "duration"), effects = effects, print.name = FALSE, trace = FALSE, return = TRUE)
 
-plot_grid(gg_pc1, gg_br, gg_ea, gg_tsr, nrow = 1, rel_widths = c(6, 2, 2, 2))
+# gg_tsr <- tsr$plot + labs(x = "Tail-to-signal ratio", y = "") + theme(axis.text.y = element_blank())
+# 
+# plot_grid(gg_pc1, gg_br, gg_ea, gg_tsr, nrow = 1, rel_widths = c(6, 2, 2, 2))
 
 ```
 
 
 ```{r, out.width="100%"}
 
-estimates <- data.frame(pc1 = pc1$coef_table$Estimate, br = br$coef_table$Estimate, ea = ea$coef_table$Estimate, tsr = tsr$coef_table$Estimate)
+estimates <- data.frame(pc1 = pc1$coef_table$Estimate
+                         , br = br$coef_table$Estimate, ea = ea$coef_table$Estimate, tsr = tsr$coef_table$Estimate)
 
 names(estimates) <- c("Degradation (PC1)", "Blur ratio", "Excess attenuation", "Tail-to-signal ratio")
 
@@ -880,25 +618,52 @@ names(signif) <- c("Degradation (PC1)", "Blur ratio", "Excess attenuation", "Tai
 estimates <- as.data.frame(cbind(rownames(pc1$coef_table), stack(estimates)[, 1], stack(rel_estimates)[, 1], stack(signif)))
 
 names(estimates) <- c("predictor", "est", "relavite.est", "sig", "response")
-estimates$signif <- ifelse(estimates$sig, "p < 0.05", "p >= 0.05")
+estimates$signif <- ifelse(estimates$sig, "p < 0.05", "N.S.")
 
 
 # estimates$relavite.est <- ifelse(estimates$sig, estimates$relavite.est, 0)
 
 estimates$response <- factor(estimates$response, levels = rev(c("Degradation (PC1)", "Blur ratio", "Excess attenuation", "Tail-to-signal ratio")))
 
-estimates$predictor <- factor(estimates$predictor, levels = c("habitat structure", "frequency modulation", "amplitude modulation", "frequency", "duration", "frequency:habitat structure", "habitat structure:duration", "habitat structure:amplitude modulation", "habitat structure:frequency modulation"))
+firstup <- function(x) {
+  substr(x, 1, 1) <- toupper(substr(x, 1, 1))
+  x
+}
 
-ggplot(estimates, aes(x = predictor, y = response, fill = relavite.est)) +
+estimates$predictor <- firstup(estimates$predictor)
+
+estimates$predictor <- factor(estimates$predictor, levels = c("Habitat structure",  "Frequency", "Duration", "Amplitude modulation", "Frequency modulation"))
+
+gg_tiled <- ggplot(estimates, aes(x = predictor, y = response, fill = relavite.est)) +
     geom_tile() + 
     coord_equal() + 
-     scale_fill_gradient2(low = viridis(10)[3], high = viridis(10)[7], guide = "none") +
-     geom_text(aes(label = round(est, 3), color = signif), size = 4) + 
-    scale_color_manual(values = c("black", "gray")) +
-    labs(x = "", y = "", color = "P value") +
-    theme_classic(base_size = 10) + 
-    theme(axis.text.x = element_text(color = "black",
-    size = 11, angle = 30, vjust = 0.8, hjust = 0.8))
+     scale_fill_gradient2(low = mako(10)[3], high = mako(10)[7], guide = "none") +
+     geom_text(aes(label = round(est, 3), color = signif), size = 5) + 
+    scale_color_manual(values = c("gray", "black"), guide = "none") +
+    labs(x = "", y = "", color = "Significance") +
+    theme_classic(base_size = 15) + 
+    theme(axis.text.x = element_text(color = "black", angle = 30, vjust = 1, hjust = 1), axis.text.y = element_text(color="black"))
+
+gg_tiled
+
+
+gg_tiled2 <- ggplot(estimates, aes(x = predictor, y = response, fill = relavite.est)) +
+    geom_tile() + 
+    coord_equal() + 
+     scale_fill_gradient2(low = mako(10)[3], high = mako(10)[7], guide = "none") +
+     geom_text(aes(label = round(est, 3), color = signif), size = 7) + 
+    scale_color_manual(values = c("gray", "black"), guide = "none") +
+    labs(x = "", y = "", color = "Significance") +
+    theme_classic(base_size = 22) + 
+    theme(axis.text.x = element_text(color = "black", angle = 30, vjust = 1, hjust = 1), axis.text.y = element_text(color="black"))
+
+
+# # save for presentation
+# ggsave(plot = gg_tiled2, filename = "./output/presentation/images/pvalues_grid.jpeg", dpi =  300)
+ 
+# save for paper
+# ggsave(plot = gg_tiled2, filename = "./output/pvalues_grid.jpeg", dpi =  300,width = 12, height = 8)
+
 
 ```
 
@@ -921,77 +686,10 @@ check_rds_fits(path = "./data/processed/", html = TRUE)
 - Habitat structure seems to drive most of the observed degradation
 - Frequency modulation and amplitude modulation were the signal structural features that more strongly affected transmission
 - Signal features interact with habitat structure in diverse ways, sometimes increasing and sometimes decreasing degradation
-- Degradation metrics are robust to variation in signal duration
+- Most degradation metrics are robust to variation in signal duration
 
 
 </div>
-
-&nbsp;
-
-# Posterior predictive checks
-
-
-```{r, warning=FALSE, results='asis'}
-
-
-model_list <- c(
-    pc1 = "./data/processed/regression_model_pc1.RDS",
-    blur_ratio = "./data/processed/regression_model_blur_ratio.RDS",
-    excess_attenuation =                 "./data/processed/regression_model_excess_attenuation.RDS",
-    tail_to_signal_ratio = "./data/processed/regression_model_tail_to_signal_ratio.RDS"
-)
-
-ndraws <- 20
-
-for (i in seq_len(length(model_list))) {
-    cat('\n\n## ', names(model_list)[i], '\n\n')
-    
-    fit <- readRDS(model_list[[i]])
-    ppc_dens <-
-        pp_check(fit,
-                 ndraws = ndraws,
-                 type = 'dens_overlay_grouped',
-                 group = "habitat.structure")  # shows dens_overlay plot by default
-    pp_mean <-
-        pp_check(
-            fit,
-            type = "stat_grouped",
-            stat = "mean",
-            group = "habitat.structure",
-            ndraws = ndraws
-        )
-    pp_scat <-
-        pp_check(fit,
-                 type = "scatter_avg_grouped",
-                 group = "habitat.structure",
-                 ndraws = ndraws)
-    pp_stat2 <- pp_check(fit, type = "stat_2d", ndraws = ndraws)
-    pp_loo <- pp_check(fit, type = "loo_pit_qq", ndraws = ndraws)
-    pp_error <-
-        pp_check(fit,
-                 type = "error_scatter_avg_grouped",
-                 ndraws = ndraws,
-                 group = "habitat.structure")
-    plot_l <-
-        list(ppc_dens, pp_mean, pp_scat, pp_error,  pp_stat2, pp_loo)
-    
-    plot_l <-
-        lapply(plot_l, function(x)
-            x  + scale_color_viridis_d(
-                begin = 0.1,
-                end = 0.8,
-                alpha = 0.5
-            ) + scale_fill_viridis_d(
-                begin = 0.1,
-                end = 0.8,
-                alpha = 0.5
-            ) + theme_classic())     
-
-    print(plot_grid(plotlist = plot_l, ncol = 2))
-}
-```
-
-<!-- '---' adds a gray vertical line -->
 
 ---
 

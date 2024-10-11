@@ -340,7 +340,7 @@ mod_pc1 <- add_criterion(mod_pc1, criterion = c("loo"))
 
 null_mod_pc1 <-
 brm(
-formula = pc1 ~ 1 + (1 | location) + (1 | treatment.replicates),
+formula = pc1 ~ 1 + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
 data = degrad_df,
 prior = null_priors,
 iter = iter,
@@ -373,7 +373,7 @@ mod_blurratio <- add_criterion(mod_blurratio, criterion = c("loo"))
 
 null_mod_blurratio <-
     brm(
-        formula = blur.ratio ~ 1 + (1 | location) + (1 | treatment.replicates),
+        formula = blur.ratio ~ 1 + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
         data = degrad_df,
         prior = null_priors,
         iter = iter,
@@ -407,7 +407,7 @@ mod_ea <- add_criterion(mod_ea, criterion = c("loo"))
 
 null_mod_ea <-
     brm(
-        formula = excess.attenuation ~ 1 + (1 | location) + (1 | treatment.replicates),
+        formula = excess.attenuation ~ 1 + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
         data = degrad_df,
         prior = null_priors,
         iter = iter,
@@ -440,7 +440,7 @@ mod_tsr <- add_criterion(mod_tsr, criterion = c("loo"))
 
 null_mod_tsr <-
     brm(
-        formula = tail.to.signal.ratio ~ 1 + (1 | location) + (1 | treatment.replicates),
+        formula = tail.to.signal.ratio ~ 1 + mo(distance_f) + (1 | location) + (1 | treatment.replicates),
         data = degrad_df,
         prior = null_priors,
         iter = iter,
@@ -468,7 +468,7 @@ null_mod <- readRDS("./data/processed/null_regression_model_pc1.RDS")
 
 loo_diff <- loo::loo_compare(mod, null_mod)
 
-loo_diff
+as.data.frame(loo_diff[,1:2], row.names = c("model", "null model"))
 ```
 
 
@@ -497,7 +497,7 @@ null_mod <- readRDS("./data/processed/null_regression_model_blur_ratio.RDS")
 
 loo_diff <- loo::loo_compare(mod, null_mod)
 
-loo_diff
+as.data.frame(loo_diff[,1:2], row.names = c("model", "null model"))
 ```
 
 ```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
@@ -525,7 +525,7 @@ null_mod <- readRDS("./data/processed/null_regression_model_excess_attenuation.R
 
 loo_diff <- loo::loo_compare(mod, null_mod)
 
-loo_diff
+as.data.frame(loo_diff[,1:2], row.names = c("model", "null model"))
 ```
 
 ```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}
@@ -553,7 +553,7 @@ null_mod <- readRDS("./data/processed/null_regression_model_tail_to_signal_ratio
 
 loo_diff <- loo::loo_compare(mod, null_mod)
 
-loo_diff
+as.data.frame(loo_diff[,1:2], row.names = c("model", "null model"))
 ```
 
 ```{r, eval = TRUE, results='asis', warning = FALSE, out.width="100%"}

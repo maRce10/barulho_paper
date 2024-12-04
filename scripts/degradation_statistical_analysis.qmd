@@ -1,6 +1,6 @@
 ---
 title: Degradation statistics
-subtitle: baRulho:quantifying habitat-induced degradation of (animal) acoustic signals
+subtitle: Quantifying degradation in animal acoustic signals with the R package baRulho
 author: Marcelo Araya-Salas
 date: "`r Sys.Date()`"
 toc: true
@@ -50,17 +50,17 @@ knitr::opts_chunk$set(
 
 ```
 
-<div class="alert alert-info">
 
-# Purposes {.unnumbered .unlisted}
+::: {.alert .alert-info}
+Data analysis for the paper:
 
-- Summarize degradation metrics on re-recorded signals from playback experiment at Bosque de Tlalpan, Mexico City, 2019
+Araya-Salas M, EE Grabarczyk, M Quiroz-Oliva, A García-Rodríguez, A Rico-Guevara. 2025. **Quantifying degradation in animal acoustic signals with the R package baRulho**. Methods in Ecology and Evolution.
 
-- Run statistical analyses
+:::
 
-</div>
 
-&nbsp; 
+The following scripts reproduce the data formatting and statistical analysis from the paper.
+
 
 # Load packages {.unnumbered .unlisted}
 
@@ -200,10 +200,15 @@ degrad_df <- degrad_df[, colmns]
 write.csv(degrad_df, "./data/processed/tlalpan_degradation_metrics_v01.csv", row.names = FALSE)
 ```
 
+# Read data
+The data file is read from [this repository](https://figshare.com/articles/media/baRulho_an_R_package_to_quantify_animal_acoustic_signal_transmission_and_degradation/21559074):
+
+```{r rea data, out.width = "100%"}
+degrad_df <- read.csv("https://figshare.com/ndownloader/files/50981481")
+```
+
+# PCA 
 ```{r add PCA, out.width = "100%"}
-
-degrad_df <- read.csv("./data/processed/tlalpan_degradation_metrics_v01.csv")
-
 degrad_df <- degrad_df[grep("marker", degrad_df$sound.id, invert = TRUE), ]
 
 degrad_params <- c("blur.ratio", "spectrum.blur.ratio", "envelope.correlation", "excess.attenuation", "signal.to.noise.ratio", "cross.correlation", "tail.to.signal.ratio", "spectrum.correlation")
@@ -257,21 +262,9 @@ cp <- corrplot.mixed(cormat, tl.cex = 0.7,
                upper = "ellipse",
                tl.col = "black")
 
-# sort parameters as in clusters for cross correlation
-# degrad_params <- degrad_params[match(rownames(cp$corr), degrad_params)]
-# 
-# degrad_df$treatment.replicates <- sapply(strsplit(degrad_df$sound.id, ".wav"), "[[", 1)
-# 
-# degrad_df$frequency <- as.numeric(sapply(strsplit(degrad_df$sound.id, "_"), "[[", 1))
-# 
-# degrad_df$frequency.modulation <- sapply(strsplit(degrad_df$sound.id, "_"), "[[", 2)
-# 
-# degrad_df$amplitude.modulation <- sapply(strsplit(degrad_df$sound.id, "_"), "[[", 3)
-# 
+
 degrad_df$habitat.structure <- degrad_df$habitat_structure
 degrad_df$habitat_structure <- NULL
-# 
-# degrad_df$duration <- ifelse(grepl("dur:0.1", degrad_df$sound.id), "short", "long")
 
 ```
 

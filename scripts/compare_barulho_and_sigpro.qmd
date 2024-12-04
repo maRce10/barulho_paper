@@ -434,7 +434,7 @@ combined_gg <- ggplot(dat, aes(x = x, y = y, color = type)) +
             color = "orange", size = 5) +
     theme_classic(base_size = 12) + theme(legend.position="none")
 
-# ggsave(plot = combined_gg, filename = "./output/barulho_vs_sigpro.jpeg", dpi =  300, width = 7, height = 4)
+# ggsave(plot = combined_gg, filename = "./output/barulho_vs_sigpro.tiff", dpi =  300, width = 7, height = 4)
 
 ```
 

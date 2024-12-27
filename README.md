@@ -1,37 +1,16 @@
-baRulho paper
+baRulho paper data analysis
 ================
-Marcelo Araya_Salas
-2023-07-03
 
 <!-- Short Description  -->
 
-Code for data analysis for paper showcasing the [R package
-baRulho](https://marce10.github.io/baRulho/)
+Code for reproducing data analysis in the paper:
 
-*Updated on 2023-07-03 15:42:12*
+    Araya-Salas M, EE Grabarczyk, M Quiroz-Oliva, A García-Rodríguez, A Rico-Guevara. 2025. 
+    Quantifying degradation in animal acoustic signals with the R package baRulho. 
+    Methods in Ecology and Evolution.
 
-<!-- README.md is generated from README.Rmd. Please edit that file -->
-
-## Analysis
-
-- Simulating acoustic signals
-- [Compare Sigpro and
-  baRulho](https://rpubs.com/marcelo-araya-salas/929959)
-- [Statistical analysis](https://rpubs.com/marcelo-araya-salas/1032060)
-
-## In progress
-
-- Writting paper
-
-## To-do list
-
-- Finish paper
-- Submit paper
-
-## Status
-
-Project is: *in progress*
+This paper showcases the [R package baRulho](https://marce10.github.io/baRulho/)
 
 ## Contact
 
-Created by [Marcelo Araya-Salas](https://marce10.github.io/)
+Created and maintained by [Marcelo Araya-Salas](https://marce10.github.io/)

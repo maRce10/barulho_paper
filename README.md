@@ -29,7 +29,7 @@ To install the baRulho package, use the following R commands:
     install.packages("baRulho")
     
     # Or install the development version from GitHub
-    devtools::install_github("marce10/baRulho")
+    remotes::install_github("marce10/baRulho")
 
 The package and its documentation can be found at:
 
@@ -37,7 +37,5 @@ The package and its documentation can be found at:
 
 - Repository: https://ropensci.github.io/baRulho/
 
-For questions, suggestions, or feedback, please reach out to:
-Marcelo Araya-Salas
-Website: https://marce10.github.io/
+For questions, suggestions, or feedback, please [open an issue here](https://github.com/maRce10/barulho_paper/issues/new/choose)
 

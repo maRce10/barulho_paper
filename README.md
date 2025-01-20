@@ -24,10 +24,10 @@ https://doi.org/10.6084/m9.figshare.21559074.v6
 
 To install the baRulho package, use the following R commands:
 
-    ### Install from CRAN
+    # Install from CRAN
     install.packages("baRulho")
     
-    ### Or install the development version from GitHub
+    # Or install the development version from GitHub
     devtools::install_github("marce10/baRulho")
 
 The package and its documentation can be found at:

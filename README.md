@@ -21,7 +21,7 @@ For audio files and additional resources, please visit (and cite):
 https://doi.org/10.6084/m9.figshare.21559074.v6
 
     Araya-Salas, Marcelo (2022). Quantifying degradation in animal acoustic signals with 
-    the R package baRulho. figshare. Media. https://doi.org/10.6084/m9.figshare.21559074.v6
+    the R package baRulho. figshare. Media. https://doi.org/10.6084/m9.figshare.21559074
 
 ## Installation and Usage
 

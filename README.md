@@ -7,6 +7,8 @@ This repository contains the scripts and data used for the analyses presented in
     Methods in Ecology and Evolution, 00, 1–12.
     https://doi.org/10.1111/2041-210X.14481
 
+[*Link to the paper](https://besjournals.onlinelibrary.wiley.com/doi/full/10.1111/2041-210X.14481)
+
 This study introduces baRulho, an R package designed to quantify the transmission and degradation of animal acoustic signals.
 
 This repository includes:
